@@ -2,6 +2,29 @@ html, body {
     font-family: Roboto, Helvetica, Arial, sans-serif;
 }
 
+/* ---------- Tastatur & Semantik ---------- */
+/* Skip-Link: unsichtbar, bis er per Tab fokussiert wird. */
+.skip-link {
+    position: absolute;
+    top: 8px;
+    left: 8px;
+    z-index: 2100;
+    padding: 8px 16px;
+    background: var(--mud-palette-surface);
+    color: var(--mud-palette-primary);
+    border-radius: 4px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, .3);
+    font-weight: 500;
+    transform: translateY(-200%);
+}
+
+.skip-link:focus { transform: none; }
+
+/* Fokusziel des Skip-Links bzw. nach Navigation – keinen Rahmen um den ganzen Inhalt zeichnen. */
+#inhalt:focus { outline: none; }
+
+.breadcrumbs-current { color: var(--mud-palette-text-secondary); }
+
 /* ---------- Agenda-Kopf & Toolbar ---------- */
 .agenda-header { margin-bottom: 12px; }
 .agenda-header-title { line-height: 1.25; }
@@ -56,6 +79,13 @@ html, body {
     border-radius: 6px;
     position: sticky;
     top: 0;
+}
+
+/* Raumname ist eine Überschrift (Spaltenkopf), sieht aber aus wie bisher fetter Fließtext. */
+.agenda-room-name {
+    margin: 0;
+    font-size: inherit;
+    font-weight: 700;
 }
 
 .agenda-cap {

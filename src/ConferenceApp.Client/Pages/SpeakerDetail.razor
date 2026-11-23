@@ -5,13 +5,13 @@
 
 <PageState Loading="_detail is null" Error="@_error">
     @{ var sp = _detail!.Speaker; }
-    <MudBreadcrumbs Items="_breadcrumbs" Class="px-0 pt-0" />
+    <Breadcrumbs Items="_breadcrumbs" Class="px-0 pt-0" />
 
     <MudPaper Class="pa-6" Elevation="1">
         <div class="d-flex align-center gap-4 mb-4">
             <SpeakerAvatar Name="@sp.Name" PhotoUrl="@sp.PhotoUrl" Size="Size.Large" />
             <div>
-                <MudText Typo="Typo.h4">@sp.Name</MudText>
+                <MudText Typo="Typo.h4" HtmlTag="h1">@sp.Name</MudText>
                 <MudText Typo="Typo.subtitle1" Color="Color.Secondary">@sp.Company</MudText>
             </div>
         </div>

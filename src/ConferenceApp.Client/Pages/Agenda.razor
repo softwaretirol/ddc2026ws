@@ -5,10 +5,10 @@
 
 <PageState Loading="_agenda is null" Error="@_error">
     @{ var conf = _agenda!.Conference; }
-    <MudBreadcrumbs Items="_breadcrumbs" Class="pa-0 mb-1" />
+    <Breadcrumbs Items="_breadcrumbs" Class="pa-0 mb-1" />
 
     <header class="agenda-header">
-        <MudText Typo="Typo.h5" Class="agenda-header-title">@conf.Name</MudText>
+        <MudText Typo="Typo.h5" HtmlTag="h1" Class="agenda-header-title">@conf.Name</MudText>
         <div class="agenda-header-meta">
             <span><MudIcon Icon="@Icons.Material.Outlined.Event" Size="Size.Small" />@Format.DateRange(conf.StartDate, conf.EndDate)</span>
             @if (conf.Location is not null)
