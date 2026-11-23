@@ -2,6 +2,7 @@
 @inject ApiClient Api
 @inject IDialogService Dialogs
 @inject ISnackbar Snackbar
+@inject NavigationManager Navigation
 
 <PageTitle>Admin – @(_conference?.Name ?? "Konferenz")</PageTitle>
 
@@ -146,6 +147,7 @@
                 RoomId = s.RoomId, TrackId = s.TrackId, SpeakerIds = s.Speakers.Select(x => x.Id).ToList(),
             };
 
+        SessionDto? saved = null;
         var parameters = new DialogParameters<SessionDialog>
         {
             { x => x.Model, model },
@@ -153,37 +155,43 @@
             { x => x.Rooms, _rooms },
             { x => x.Tracks, _tracks },
             { x => x.Speakers, _speakers },
-            { x => x.OnSave, r => s is null ? Api.CreateSessionAsync(Id, r) : Api.UpdateSessionAsync(Id, s.Id, r) },
+            { x => x.OnSave, async r => saved = s is null ? await Api.CreateSessionAsync(Id, r) : await Api.UpdateSessionAsync(Id, s.Id, r) },
         };
-        await AfterSaveAsync(await Dialogs.ShowFormAsync(s is null ? "Neue Session" : "Session bearbeiten", parameters));
+        if (await Dialogs.ShowFormAsync(s is null ? "Neue Session" : "Session bearbeiten", parameters) && saved is not null)
+            await AfterSaveAsync($"Session „{saved.Title}“ gespeichert.", $"/konferenzen/{_conference!.Slug}/sessions/{saved.Id}");
     }
 
     private async Task EditTrackAsync(TrackDto? t)
     {
         var model = t is null ? new TrackRequest() : new TrackRequest { Name = t.Name, Color = t.Color };
+        TrackDto? saved = null;
         var parameters = new DialogParameters<TrackDialog>
         {
             { x => x.Model, model },
-            { x => x.OnSave, r => t is null ? Api.CreateTrackAsync(Id, r) : Api.UpdateTrackAsync(Id, t.Id, r) },
+            { x => x.OnSave, async r => saved = t is null ? await Api.CreateTrackAsync(Id, r) : await Api.UpdateTrackAsync(Id, t.Id, r) },
         };
-        await AfterSaveAsync(await Dialogs.ShowFormAsync(t is null ? "Neuer Track" : "Track bearbeiten", parameters));
+        if (await Dialogs.ShowFormAsync(t is null ? "Neuer Track" : "Track bearbeiten", parameters) && saved is not null)
+            await AfterSaveAsync($"Track „{saved.Name}“ gespeichert.", AgendaUrl);
     }
 
     private async Task EditRoomAsync(RoomDto? room)
     {
         var model = room is null ? new RoomRequest() : new RoomRequest { Name = room.Name, Capacity = room.Capacity };
+        RoomDto? saved = null;
         var parameters = new DialogParameters<RoomDialog>
         {
             { x => x.Model, model },
-            { x => x.OnSave, r => room is null ? Api.CreateRoomAsync(Id, r) : Api.UpdateRoomAsync(Id, room.Id, r) },
+            { x => x.OnSave, async r => saved = room is null ? await Api.CreateRoomAsync(Id, r) : await Api.UpdateRoomAsync(Id, room.Id, r) },
         };
-        await AfterSaveAsync(await Dialogs.ShowFormAsync(room is null ? "Neuer Raum" : "Raum bearbeiten", parameters));
+        if (await Dialogs.ShowFormAsync(room is null ? "Neuer Raum" : "Raum bearbeiten", parameters) && saved is not null)
+            await AfterSaveAsync($"Raum „{saved.Name}“ gespeichert.", AgendaUrl);
     }
 
-    private async Task AfterSaveAsync(bool saved)
+    private string AgendaUrl => $"/konferenzen/{_conference!.Slug}";
+
+    private async Task AfterSaveAsync(string text, string href)
     {
-        if (!saved) return;
-        Snackbar.Add("Gespeichert.", Severity.Success);
+        Snackbar.AddSaved(text, Navigation, href);
         await LoadAsync();
     }
 

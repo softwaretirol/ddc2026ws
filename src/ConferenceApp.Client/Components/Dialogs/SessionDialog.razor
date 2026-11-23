@@ -7,11 +7,13 @@
             <MudSelectItem Value="day">@Format.Day(day)</MudSelectItem>
         }
     </MudSelect>
+    <ValidationMessage For="@(() => Model.Day)" class="mud-error-text mud-typography-caption" />
 
     <MudStack Row="true" Spacing="3">
         <MudTimePicker @bind-Time="Start" Label="Beginn" AmPm="false" Required="true" />
         <MudTimePicker @bind-Time="End" Label="Ende" AmPm="false" Required="true" />
     </MudStack>
+    <ValidationMessage For="@(() => Model.StartTime)" class="mud-error-text mud-typography-caption" />
     <ValidationMessage For="@(() => Model.EndTime)" class="mud-error-text mud-typography-caption" />
 
     <MudSelect T="int" @bind-Value="Model.RoomId" For="@(() => Model.RoomId)" Label="Raum" Required="true"
@@ -30,6 +32,7 @@
             <MudSelectItem T="int?" Value="t.Id"><span class="color-dot" style="background:@t.Color"></span>@t.Name</MudSelectItem>
         }
     </MudSelect>
+    <ValidationMessage For="@(() => Model.TrackId)" class="mud-error-text mud-typography-caption" />
 
     <MudSelect T="int" Label="Speaker" MultiSelection="true"
                SelectedValues="Model.SpeakerIds" SelectedValuesChanged="@(v => Model.SpeakerIds = v.ToList())"
@@ -39,6 +42,7 @@
             <MudSelectItem Value="s.Id">@s.Name</MudSelectItem>
         }
     </MudSelect>
+    <ValidationMessage For="@(() => Model.SpeakerIds)" class="mud-error-text mud-typography-caption" />
 
     <MudTextField @bind-Value="Model.Abstract" For="@(() => Model.Abstract)" Label="Abstract" Lines="5" />
 </FormDialog>
