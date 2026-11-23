@@ -91,8 +91,10 @@ public class SpeakerRequest
     [MaxLength(200)]
     public string? Company { get; set; }
 
+    // Optional: ein geleertes Formularfeld ("" bzw. nur Leerzeichen) gilt als "kein Foto", nicht als ungültige URL.
     [Url(ErrorMessage = "Keine gültige URL."), MaxLength(500)]
-    public string? PhotoUrl { get; set; }
+    public string? PhotoUrl { get => _photoUrl; set => _photoUrl = string.IsNullOrWhiteSpace(value) ? null : value; }
+    private string? _photoUrl;
 
     public List<string> Links { get; set; } = [];
 }
