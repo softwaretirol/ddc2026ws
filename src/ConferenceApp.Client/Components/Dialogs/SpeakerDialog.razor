@@ -1,18 +1,39 @@
 <FormDialog TModel="SpeakerRequest" Model="Model" OnSave="OnSave">
     <MudTextField @bind-Value="Model.Name" For="@(() => Model.Name)" Label="Name" Required="true" AutoFocus="true" />
     <MudTextField @bind-Value="Model.Company" For="@(() => Model.Company)" Label="Firma" />
-    <MudTextField @bind-Value="Model.PhotoUrl" For="@(() => Model.PhotoUrl)" Label="Foto-URL" />
+    <div class="d-flex align-center gap-3">
+        @* Vorschau: Foto nur bei gültiger http(s)-URL, sonst Initialen wie in der öffentlichen Ansicht. *@
+        <SpeakerAvatar Name="@Model.Name" PhotoUrl="@PreviewUrl" Size="Size.Large" />
+        <MudTextField @bind-Value="Model.PhotoUrl" For="@(() => Model.PhotoUrl)" Label="Foto-URL" Immediate="true" DebounceInterval="400"
+                      HelperText="Vorschau links" Class="flex-grow-1" />
+    </div>
     <MudTextField @bind-Value="Model.Bio" For="@(() => Model.Bio)" Label="Bio" Lines="4" />
-    <MudTextField @bind-Value="LinksText" Label="Links (einer pro Zeile)" Lines="3" />
+
+    <div>
+        <MudText Typo="Typo.subtitle2">Links</MudText>
+        @for (var i = 0; i < Model.Links.Count; i++)
+        {
+            var index = i;
+            <div class="d-flex align-center gap-2">
+                <MudTextField T="string" Value="Model.Links[index]" ValueChanged="v => Model.Links[index] = v ?? string.Empty"
+                              Label="@LinkLabel(index)" Placeholder="https://…" InputType="InputType.Url" Class="flex-grow-1" />
+                <MudIconButton Icon="@Icons.Material.Filled.Delete" aria-label="@RemoveLabel(index)" OnClick="() => Model.Links.RemoveAt(index)" />
+            </div>
+        }
+        <MudButton StartIcon="@Icons.Material.Filled.Add" Variant="Variant.Text" Class="mt-2" OnClick="() => Model.Links.Add(string.Empty)">Link hinzufügen</MudButton>
+    </div>
+    <ValidationMessage For="@(() => Model.Links)" class="mud-error-text mud-typography-caption" />
 </FormDialog>
 
 @code {
     [Parameter] public SpeakerRequest Model { get; set; } = new();
     [Parameter] public Func<SpeakerRequest, Task> OnSave { get; set; } = default!;
 
-    private string LinksText
-    {
-        get => string.Join("\n", Model.Links);
-        set => Model.Links = (value ?? "").Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).ToList();
-    }
+    private string? PreviewUrl =>
+        Uri.TryCreate(Model.PhotoUrl, UriKind.Absolute, out var uri) && (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps)
+            ? Model.PhotoUrl
+            : null;
+
+    private static string LinkLabel(int index) => $"Link {index + 1}";
+    private static string RemoveLabel(int index) => $"Link {index + 1} entfernen";
 }

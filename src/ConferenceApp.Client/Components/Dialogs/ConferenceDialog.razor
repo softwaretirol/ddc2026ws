@@ -1,6 +1,9 @@
+@using System.Globalization
+@using System.Text
 <FormDialog TModel="ConferenceRequest" Model="Model" OnSave="OnSave">
-    <MudTextField @bind-Value="Model.Name" For="@(() => Model.Name)" Label="Name" Required="true" AutoFocus="true" />
-    <MudTextField @bind-Value="Model.Slug" For="@(() => Model.Slug)" Label="Slug (für die URL)" HelperText="z. B. devconf-2027" Required="true" />
+    <MudTextField T="string" Value="Model.Name" ValueChanged="NameChanged" For="@(() => Model.Name)" Label="Name" Required="true" AutoFocus="true" Immediate="true" />
+    <MudTextField T="string" Value="Model.Slug" ValueChanged="SlugChanged" For="@(() => Model.Slug)" Label="Slug (für die URL)"
+                  HelperText="@SlugHelperText" Required="true" />
     <MudTextField @bind-Value="Model.Location" For="@(() => Model.Location)" Label="Ort" />
     <MudStack Row="true" Spacing="3">
         <MudDatePicker @bind-Date="Start" Label="Startdatum" DateFormat="dd.MM.yyyy" Required="true" />
@@ -13,6 +16,46 @@
 @code {
     [Parameter] public ConferenceRequest Model { get; set; } = new();
     [Parameter] public Func<ConferenceRequest, Task> OnSave { get; set; } = default!;
+
+    // Slug nur bei neuen Konferenzen vorschlagen (bestehende URLs nicht unbemerkt ändern)
+    // und nur, solange er nicht von Hand geändert wurde.
+    private bool _suggestSlug;
+
+    protected override void OnInitialized() => _suggestSlug = string.IsNullOrEmpty(Model.Slug);
+
+    private string SlugHelperText => _suggestSlug ? "Wird aus dem Namen vorgeschlagen, z. B. devconf-2027" : "z. B. devconf-2027";
+
+    private void NameChanged(string? value)
+    {
+        Model.Name = value ?? "";
+        if (_suggestSlug) Model.Slug = Slugify(Model.Name);
+    }
+
+    private void SlugChanged(string? value)
+    {
+        Model.Slug = value ?? "";
+        // Leeres Feld schaltet den Vorschlag wieder ein.
+        _suggestSlug = Model.Slug.Length == 0;
+    }
+
+    /// <summary>"DevConf Österreich 2027" → "devconf-oesterreich-2027" (passt zum Slug-Muster der API).</summary>
+    private static string Slugify(string text)
+    {
+        var replaced = text.ToLowerInvariant()
+            .Replace("ä", "ae").Replace("ö", "oe").Replace("ü", "ue").Replace("ß", "ss")
+            .Normalize(NormalizationForm.FormD);
+
+        var sb = new StringBuilder();
+        foreach (var c in replaced)
+        {
+            if (CharUnicodeInfo.GetUnicodeCategory(c) == UnicodeCategory.NonSpacingMark) continue;
+            if (c is >= 'a' and <= 'z' or >= '0' and <= '9') sb.Append(c);
+            else if (sb.Length > 0 && sb[^1] != '-') sb.Append('-');
+        }
+
+        var slug = sb.ToString().Trim('-');
+        return slug.Length <= 100 ? slug : slug[..100].TrimEnd('-');
+    }
 
     private DateTime? Start
     {
