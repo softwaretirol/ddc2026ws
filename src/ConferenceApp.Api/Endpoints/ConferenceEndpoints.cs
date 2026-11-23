@@ -10,8 +10,12 @@ public static class ConferenceEndpoints
     {
         var group = app.MapGroup("/api/conferences").WithTags("Conferences");
 
+        // Sessionanzahl als korrelierte Subquery in derselben Abfrage (kein N+1).
         group.MapGet("/", async (ConferenceDbContext db) =>
-            await db.Conferences.AsNoTracking().OrderByDescending(c => c.StartDate).Select(c => c.ToDto()).ToListAsync());
+            await db.Conferences.AsNoTracking()
+                .OrderByDescending(c => c.StartDate)
+                .Select(c => new ConferenceDto(c.Id, c.Name, c.Slug, c.Description, c.StartDate, c.EndDate, c.Location, c.Sessions.Count()))
+                .ToListAsync());
 
         group.MapGet("/{id:int}", async Task<IResult> (int id, ConferenceDbContext db) =>
             await db.Conferences.FindAsync(id) is { } c ? TypedResults.Ok(c.ToDto()) : TypedResults.NotFound());
