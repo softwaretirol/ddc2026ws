@@ -54,7 +54,14 @@
         }
     </div>
 
-    <AgendaGrid Sessions="SessionsFor(_day)" Rooms="_agenda.Rooms" Slug="@Slug" />
+    @* Unter 768 px chronologische Liste, ab 768 px Raster. Umschaltung rein per CSS-Media-Query (app.css). *@
+    @{ var daySessions = SessionsFor(_day); }
+    <div class="agenda-view-list">
+        <AgendaList Sessions="daySessions" Rooms="_agenda.Rooms" Slug="@Slug" />
+    </div>
+    <div class="agenda-view-grid">
+        <AgendaGrid Sessions="daySessions" Rooms="_agenda.Rooms" Slug="@Slug" />
+    </div>
     </ChildContent>
 </PageState>
 
