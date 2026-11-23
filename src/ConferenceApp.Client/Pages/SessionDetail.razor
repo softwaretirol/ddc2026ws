@@ -19,7 +19,7 @@
         <Meta>
             @if (_session.TrackName is not null)
             {
-                <span><span class="color-dot" style="background:@_session.TrackColor"></span>@_session.TrackName</span>
+                <span><span class="color-dot" style="background:@_session.TrackColor" aria-hidden="true"></span>@_session.TrackName</span>
             }
             <span><MudIcon Icon="@Icons.Material.Outlined.Event" Size="Size.Small" />@Format.Day(_session.Day)</span>
             <span><MudIcon Icon="@Icons.Material.Outlined.Schedule" Size="Size.Small" />@Format.Range(_session.StartTime, _session.EndTime)</span>

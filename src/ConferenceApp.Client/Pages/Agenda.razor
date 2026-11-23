@@ -47,7 +47,7 @@
                 @foreach (var t in _agenda.Tracks)
                 {
                     <MudChip T="string" Size="Size.Small" Variant="@(_trackFilter == t.Id ? Variant.Filled : Variant.Outlined)"
-                             Style="@($"border-color:{t.Color};" + (_trackFilter == t.Id ? $"background:{t.Color};color:#fff" : $"color:{t.Color}"))"
+                             Style="@TrackChipStyle(t)"
                              OnClick="() => _trackFilter = t.Id">@t.Name</MudChip>
                 }
             </div>
@@ -87,6 +87,12 @@
             _error = ex.IsNotFound ? "Diese Konferenz gibt es nicht." : ex.Message;
         }
     }
+
+    // Track-Farbe nur für Rand/Fläche; Text in Textfarbe bzw. auf aktiver Fläche Schwarz/Weiß je nach Luminanz.
+    private string TrackChipStyle(TrackDto t) =>
+        _trackFilter == t.Id
+            ? $"border-color:{t.Color};background:{t.Color};color:{ColorContrast.TextOn(t.Color)}"
+            : $"border-color:{t.Color};color:var(--mud-palette-text-primary)";
 
     private List<SessionDto> SessionsFor(DateOnly day) =>
         _agenda!.Sessions.Where(s => s.Day == day && (_trackFilter is null || s.TrackId == _trackFilter)).ToList();
