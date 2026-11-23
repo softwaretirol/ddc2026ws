@@ -1,5 +1,7 @@
 @page "/konferenzen/{Slug}"
+@using System.Globalization
 @inject ApiClient Api
+@inject NavigationManager Nav
 
 <PageTitle>@(_agenda?.Conference.Name ?? "Agenda")</PageTitle>
 
@@ -22,7 +24,7 @@
         }
     </header>
 
-    @* Eine Toolbar: Tage links, Track-Filter rechts *@
+    @* Eine Toolbar: Tage links, Track-Filter rechts. Die Auswahl steht in der URL (?tag=…&track=…). *@
     <div class="agenda-toolbar">
         <div class="agenda-days" role="tablist">
             @foreach (var day in Format.Days(conf.StartDate, conf.EndDate))
@@ -30,32 +32,45 @@
                 var selected = day == _day;
                 <MudButton Size="Size.Small" Variant="@(selected ? Variant.Filled : Variant.Text)" Color="Color.Primary"
                            DropShadow="false" role="tab" aria-selected="@(selected ? "true" : "false")"
-                           OnClick="() => _day = day">@Format.Day(day)</MudButton>
+                           OnClick="() => SelectDay(day)">@Format.Day(day)</MudButton>
             }
         </div>
 
         @if (_agenda.Tracks.Count > 0)
         {
-            <div class="agenda-tracks">
+            <div class="agenda-tracks" role="group" aria-label="Track-Filter">
                 <MudChip T="string" Size="Size.Small" Variant="@(_trackFilter is null ? Variant.Filled : Variant.Outlined)" Color="Color.Primary"
-                         OnClick="() => _trackFilter = null">Alle Tracks</MudChip>
+                         role="button" aria-pressed="@(_trackFilter is null ? "true" : "false")"
+                         OnClick="() => SelectTrack(null)">Alle Tracks</MudChip>
                 @foreach (var t in _agenda.Tracks)
                 {
                     <MudChip T="string" Size="Size.Small" Variant="@(_trackFilter == t.Id ? Variant.Filled : Variant.Outlined)"
                              Style="@($"border-color:{t.Color};" + (_trackFilter == t.Id ? $"background:{t.Color};color:#fff" : $"color:{t.Color}"))"
-                             OnClick="() => _trackFilter = t.Id">@t.Name</MudChip>
+                             role="button" aria-pressed="@(_trackFilter == t.Id ? "true" : "false")"
+                             OnClick="() => SelectTrack(t.Id)">@t.Name</MudChip>
                 }
             </div>
         }
     </div>
 
-    <AgendaGrid Sessions="SessionsFor(_day)" Rooms="_agenda.Rooms" Slug="@Slug" />
+    @* Kündigt Tag- und Filterwechsel für Screenreader an. *@
+    <span class="sr-only" role="status" aria-live="polite">@FilterAnnouncement</span>
+
+    <AgendaGrid Sessions="SessionsFor(_day)" Rooms="_agenda.Rooms" Slug="@Slug" MarkSessionsForAll="_trackFilter is not null" />
 </PageState>
 
 @code {
+    private const string DayFormat = "yyyy-MM-dd";
+
     [Parameter] public string Slug { get; set; } = "";
 
+    // Filterzustand kommt aus der URL: teilbar und übersteht einen Reload.
+    // Weitere Parameter (z. B. q, ansicht) lassen sich hier ergänzen; UpdateQuery lässt fremde Parameter unangetastet.
+    [SupplyParameterFromQuery(Name = "tag")] public string? TagParam { get; set; }
+    [SupplyParameterFromQuery(Name = "track")] public int? TrackParam { get; set; }
+
     private AgendaDto? _agenda;
+    private string? _loadedSlug;
     private string? _error;
     private int? _trackFilter;
     private DateOnly _day;
@@ -63,17 +78,59 @@
 
     protected override async Task OnParametersSetAsync()
     {
-        _agenda = null;
-        _error = null;
-        try
+        // Nur bei einer anderen Konferenz neu laden; reine Query-Änderungen (Filterwechsel) brauchen keinen API-Aufruf.
+        if (Slug != _loadedSlug)
         {
-            _agenda = await Api.GetAgendaAsync(Slug);
-            _day = _agenda.Conference.StartDate;
-            _breadcrumbs = [new("Konferenzen", "/"), new(_agenda.Conference.Name, null, disabled: true)];
+            _agenda = null;
+            _error = null;
+            _loadedSlug = Slug;
+            try
+            {
+                _agenda = await Api.GetAgendaAsync(Slug);
+                _breadcrumbs = [new("Konferenzen", "/"), new(_agenda.Conference.Name, null, disabled: true)];
+            }
+            catch (ApiException ex) { _error = ex.IsNotFound ? "Diese Konferenz gibt es nicht." : ex.Message; }
         }
-        catch (ApiException ex) { _error = ex.IsNotFound ? "Diese Konferenz gibt es nicht." : ex.Message; }
+
+        if (_agenda is null) return;
+        var conf = _agenda.Conference;
+
+        // Ungültige Werte oder Tage außerhalb der Konferenz fallen auf die Standardauswahl zurück.
+        _day = DateOnly.TryParseExact(TagParam, DayFormat, CultureInfo.InvariantCulture, DateTimeStyles.None, out var d)
+               && d >= conf.StartDate && d <= conf.EndDate
+            ? d
+            : conf.StartDate;
+        _trackFilter = TrackParam is { } id && _agenda.Tracks.Any(t => t.Id == id) ? id : null;
     }
 
+    private void SelectDay(DateOnly day) => UpdateQuery(day, _trackFilter);
+
+    private void SelectTrack(int? trackId) => UpdateQuery(_day, trackId);
+
+    // Schreibt die Auswahl in die URL (ohne neuen History-Eintrag). Standardwerte (erster Tag, alle Tracks)
+    // werden entfernt, andere Query-Parameter bleiben erhalten.
+    private void UpdateQuery(DateOnly day, int? trackId)
+    {
+        var tag = day == _agenda!.Conference.StartDate ? null : day.ToString(DayFormat, CultureInfo.InvariantCulture);
+        Nav.NavigateTo(Nav.GetUriWithQueryParameters(new Dictionary<string, object?>
+        {
+            ["tag"] = tag,
+            ["track"] = trackId,
+        }), replace: true);
+    }
+
+    // Sessions ohne Track (Keynote, Closing Panel …) gelten für alle und bleiben bei aktivem Track-Filter sichtbar.
     private List<SessionDto> SessionsFor(DateOnly day) =>
-        _agenda!.Sessions.Where(s => s.Day == day && (_trackFilter is null || s.TrackId == _trackFilter)).ToList();
+        _agenda!.Sessions.Where(s => s.Day == day && (_trackFilter is null || s.TrackId is null || s.TrackId == _trackFilter)).ToList();
+
+    private string FilterAnnouncement
+    {
+        get
+        {
+            var track = _agenda?.Tracks.FirstOrDefault(t => t.Id == _trackFilter)?.Name;
+            return track is null
+                ? $"Agenda für {Format.Day(_day)}, alle Tracks"
+                : $"Agenda für {Format.Day(_day)}, Track-Filter {track} aktiv, Sessions für alle bleiben sichtbar";
+        }
+    }
 }
