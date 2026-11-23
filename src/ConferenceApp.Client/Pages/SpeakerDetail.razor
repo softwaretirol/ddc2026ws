@@ -1,21 +1,38 @@
 @page "/speaker/{Id:int}"
 @inject ApiClient Api
+@inject TimeProvider Clock
 
 <PageTitle>@(_detail?.Speaker.Name ?? "Speaker")</PageTitle>
 
-<PageState Loading="_detail is null" Error="@_error">
+<PageState Loading="_detail is null" Error="@_error" NotFound="_notFound" OnRetry="LoadAsync" BackHref="/speaker" BackText="Zu allen Speakern">
+    <Skeleton>
+        <MudSkeleton Width="200px" Class="mb-3" />
+        <MudPaper Class="pa-6" Elevation="1">
+            <div class="d-flex align-center gap-4 mb-4">
+                <MudSkeleton SkeletonType="SkeletonType.Circle" Width="56px" Height="56px" />
+                <div class="flex-grow-1">
+                    <MudSkeleton Width="40%" Height="40px" />
+                    <MudSkeleton Width="25%" />
+                </div>
+            </div>
+            <MudSkeleton />
+            <MudSkeleton />
+            <MudSkeleton Width="70%" />
+        </MudPaper>
+    </Skeleton>
+    <ChildContent>
     @{ var sp = _detail!.Speaker; }
-    <MudBreadcrumbs Items="_breadcrumbs" Class="px-0 pt-0" />
+    <PageHeader Title="@sp.Name" Breadcrumbs="_breadcrumbs">
+        <Leading><SpeakerAvatar Name="@sp.Name" PhotoUrl="@sp.PhotoUrl" Size="Size.Large" Decorative="true" /></Leading>
+        <Meta>
+            @if (!string.IsNullOrWhiteSpace(sp.Company))
+            {
+                <span>@sp.Company</span>
+            }
+        </Meta>
+    </PageHeader>
 
     <MudPaper Class="pa-6" Elevation="1">
-        <div class="d-flex align-center gap-4 mb-4">
-            <SpeakerAvatar Name="@sp.Name" PhotoUrl="@sp.PhotoUrl" Size="Size.Large" Decorative="true" />
-            <div>
-                <MudText Typo="Typo.h4">@sp.Name</MudText>
-                <MudText Typo="Typo.subtitle1" Color="Color.Secondary">@sp.Company</MudText>
-            </div>
-        </div>
-
         @if (!string.IsNullOrWhiteSpace(sp.Bio))
         {
             <MudText Typo="Typo.body1" Class="prewrap mb-4">@sp.Bio</MudText>
@@ -42,7 +59,7 @@
             </div>
         }
 
-        <MudText Typo="Typo.h6" GutterBottom="true">Sessions</MudText>
+        <MudText Typo="Typo.h2" Class="mb-2">Sessions</MudText>
         @if (_detail.Sessions.Count == 0)
         {
             <MudText Typo="Typo.body2" Color="Color.Secondary">Noch keine Sessions zugeordnet.</MudText>
@@ -65,7 +82,7 @@
                         <MudListItem T="string" Href="@($"/konferenzen/{s.ConferenceSlug}/sessions/{s.Id}")" Icon="@Icons.Material.Filled.Mic">
                             <MudText Typo="Typo.subtitle1">@s.Title</MudText>
                             <MudText Typo="Typo.body2" Color="Color.Secondary">
-                                @Format.Day(s.Day) · @Format.Range(s.StartTime, s.EndTime) · @s.RoomName
+                                @Format.DayShort(s.Day) · @Format.Range(s.StartTime, s.EndTime) · @s.RoomName
                             </MudText>
                         </MudListItem>
                     }
@@ -73,6 +90,7 @@
             }
         }
     </MudPaper>
+    </ChildContent>
 </PageState>
 
 @code {
@@ -80,6 +98,7 @@
 
     private SpeakerDetailDto? _detail;
     private string? _error;
+    private bool _notFound;
     private List<BreadcrumbItem> _breadcrumbs = [];
     private List<LinkView> _links = [];
     private List<SessionGroup> _groups = [];
@@ -87,18 +106,25 @@
     private sealed record LinkView(string? Href, string Label, string Icon);
     private sealed record SessionGroup(string Name, string Slug, bool Upcoming, List<SpeakerSessionDto> Sessions);
 
-    protected override async Task OnParametersSetAsync()
+    protected override Task OnParametersSetAsync() => LoadAsync();
+
+    private async Task LoadAsync()
     {
         _detail = null;
         _error = null;
+        _notFound = false;
         try
         {
             _detail = await Api.GetSpeakerAsync(Id);
             _breadcrumbs = [new("Speaker", "/speaker"), new(_detail.Speaker.Name, null, disabled: true)];
             _links = _detail.Speaker.Links.Where(l => !string.IsNullOrWhiteSpace(l)).Select(ToLinkView).ToList();
-            _groups = GroupSessions(_detail.Sessions);
+            _groups = GroupSessions(_detail.Sessions, DateOnly.FromDateTime(Clock.GetLocalNow().DateTime));
         }
-        catch (ApiException ex) { _error = ex.IsNotFound ? "Diesen Speaker gibt es nicht." : ex.Message; }
+        catch (ApiException ex)
+        {
+            _notFound = ex.IsNotFound;
+            _error = ex.IsNotFound ? "Diesen Speaker gibt es nicht." : ex.Message;
+        }
     }
 
     /// <summary>
@@ -129,9 +155,8 @@
     /// Gruppiert nach Konferenz. Konferenzen mit kommenden Sessions zuerst (nächste zuerst),
     /// danach vergangene (jüngste zuerst). Innerhalb einer Konferenz chronologisch.
     /// </summary>
-    private static List<SessionGroup> GroupSessions(List<SpeakerSessionDto> sessions)
+    private static List<SessionGroup> GroupSessions(List<SpeakerSessionDto> sessions, DateOnly today)
     {
-        var today = DateOnly.FromDateTime(DateTime.Today);
         var groups = sessions
             .GroupBy(s => s.ConferenceSlug)
             .Select(g =>

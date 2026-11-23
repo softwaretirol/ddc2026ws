@@ -12,6 +12,10 @@ builder.RootComponents.Add<HeadOutlet>("head::after");
 var apiBaseUrl = builder.Configuration["ApiBaseUrl"] ?? "http://localhost:5198/";
 builder.Services.AddScoped(_ => new HttpClient { BaseAddress = new Uri(apiBaseUrl) });
 builder.Services.AddScoped<ApiClient>();
+builder.Services.AddScoped<ThemeService>();
+// Uhr für "Heute/Jetzt" – injizierbar, damit sich eine feste Zeit vorgeben lässt (Tests/Vorschau). Nur hier registrieren.
+builder.Services.AddSingleton(TimeProvider.System);
+builder.Services.AddScoped<AgendaCache>();
 builder.Services.AddMudServices();
 
 await builder.Build().RunAsync();
