@@ -2,6 +2,36 @@ html, body {
     font-family: Roboto, Helvetica, Arial, sans-serif;
 }
 
+/* ---------- Agenda-Kopf & Toolbar ---------- */
+.agenda-header { margin-bottom: 12px; }
+.agenda-header-title { line-height: 1.25; }
+
+.agenda-header-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 16px;
+    margin-top: 2px;
+    font-size: .875rem;
+    color: var(--mud-palette-text-secondary);
+}
+
+.agenda-header-meta span { display: inline-flex; align-items: center; gap: 4px; }
+.agenda-header-desc { margin-top: 6px; max-width: 80ch; }
+
+.agenda-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px 16px;
+    padding: 6px 0;
+    margin-bottom: 12px;
+    border-bottom: 1px solid var(--mud-palette-lines-default);
+}
+
+.agenda-days, .agenda-tracks { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
+.agenda-tracks .mud-chip { margin: 0; }
+
 /* ---------- Agenda-Raster ---------- */
 .agenda-scroll {
     overflow-x: auto;
