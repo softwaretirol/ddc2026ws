@@ -1,0 +1,172 @@
+html, body {
+    font-family: Roboto, Helvetica, Arial, sans-serif;
+}
+
+/* ---------- Agenda-Kopf & Toolbar ---------- */
+.agenda-header { margin-bottom: 12px; }
+.agenda-header-title { line-height: 1.25; }
+
+.agenda-header-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 16px;
+    margin-top: 2px;
+    font-size: .875rem;
+    color: var(--mud-palette-text-secondary);
+}
+
+.agenda-header-meta span { display: inline-flex; align-items: center; gap: 4px; }
+.agenda-header-desc { margin-top: 6px; max-width: 80ch; }
+
+.agenda-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px 16px;
+    padding: 6px 0;
+    margin-bottom: 12px;
+    border-bottom: 1px solid var(--mud-palette-lines-default);
+}
+
+.agenda-days, .agenda-tracks { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
+.agenda-tracks .mud-chip { margin: 0; }
+
+/* ---------- Agenda-Raster ---------- */
+.agenda-scroll {
+    overflow-x: auto;
+    padding-bottom: 8px;
+}
+
+.agenda-grid {
+    display: grid;
+    column-gap: 8px;
+    position: relative;
+    min-width: max-content;
+}
+
+.agenda-corner { grid-row: 1; grid-column: 1; }
+
+.agenda-room {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 4px 8px;
+    background: var(--mud-palette-background-gray);
+    border-radius: 6px;
+    position: sticky;
+    top: 0;
+}
+
+.agenda-cap {
+    font-size: .75rem;
+    color: var(--mud-palette-text-secondary);
+}
+
+.agenda-hour {
+    font-size: .8rem;
+    color: var(--mud-palette-text-secondary);
+    text-align: right;
+    padding-right: 6px;
+    transform: translateY(-.55em);
+}
+
+.agenda-line {
+    border-top: 1px solid var(--mud-palette-lines-default);
+    align-self: start;
+    z-index: 0;
+}
+
+.agenda-session {
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    margin: 2px 0;
+    padding: 6px 8px;
+    overflow: hidden;
+    background: var(--mud-palette-surface);
+    border: 1px solid var(--mud-palette-lines-default);
+    border-left: 5px solid #9E9E9E;
+    border-radius: 6px;
+    color: inherit;
+    text-decoration: none;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, .06);
+    transition: box-shadow .15s, transform .15s;
+}
+
+.agenda-session:hover {
+    box-shadow: 0 4px 10px rgba(0, 0, 0, .15);
+    transform: translateY(-1px);
+}
+
+.agenda-time { font-size: .75rem; color: var(--mud-palette-text-secondary); }
+.agenda-title { font-weight: 500; line-height: 1.25; }
+.agenda-speakers { font-size: .8rem; }
+.agenda-track { font-size: .72rem; font-weight: 500; text-transform: uppercase; letter-spacing: .03em; }
+
+/* ---------- Diverses ---------- */
+.color-dot {
+    display: inline-block;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    vertical-align: middle;
+    margin-right: 6px;
+}
+
+.prewrap { white-space: pre-wrap; }
+
+/* ---------- Blazor-Standard: Ladeanzeige & Fehlerleiste ---------- */
+#blazor-error-ui {
+    background: lightyellow;
+    bottom: 0;
+    box-shadow: 0 -1px 2px rgba(0, 0, 0, 0.2);
+    display: none;
+    left: 0;
+    padding: 0.6rem 1.25rem 0.7rem 1.25rem;
+    position: fixed;
+    width: 100%;
+    z-index: 2000;
+}
+
+#blazor-error-ui .dismiss {
+    cursor: pointer;
+    position: absolute;
+    right: 0.75rem;
+    top: 0.5rem;
+}
+
+.loading-progress {
+    position: absolute;
+    display: block;
+    width: 8rem;
+    height: 8rem;
+    inset: 20vh 0 auto 0;
+    margin: 0 auto 0 auto;
+}
+
+.loading-progress circle {
+    fill: none;
+    stroke: #e0e0e0;
+    stroke-width: 0.6rem;
+    transform-origin: 50% 50%;
+    transform: rotate(-90deg);
+}
+
+.loading-progress circle:last-child {
+    stroke: #3949AB;
+    stroke-dasharray: calc(3.141 * var(--blazor-load-percentage, 0%) * 0.8), 500%;
+    transition: stroke-dasharray 0.05s ease-in-out;
+}
+
+.loading-progress-text {
+    position: absolute;
+    text-align: center;
+    font-weight: bold;
+    inset: calc(20vh + 3.25rem) 0 auto 0.2rem;
+}
+
+.loading-progress-text:after {
+    content: var(--blazor-load-percentage-text, "Laden");
+}

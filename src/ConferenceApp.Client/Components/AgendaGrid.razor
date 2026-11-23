@@ -1,0 +1,73 @@
+@* Agenda-Raster: Räume als Spalten, Uhrzeit als Zeilen (5-Minuten-Raster). *@
+
+@if (Sessions.Count == 0)
+{
+    <MudAlert Severity="Severity.Info" Class="my-4">Für diesen Tag sind (noch) keine Sessions geplant.</MudAlert>
+}
+else
+{
+    <div class="agenda-scroll">
+        <div class="agenda-grid" style="@GridStyle">
+            <div class="agenda-corner"></div>
+            @for (var i = 0; i < Rooms.Count; i++)
+            {
+                <div class="agenda-room" style="grid-column:@(i + 2);grid-row:1">
+                    <strong>@Rooms[i].Name</strong>
+                    @if (Rooms[i].Capacity is { } cap) { <span class="agenda-cap">@cap Plätze</span> }
+                </div>
+            }
+
+            @for (var h = _start.Hour; h < _end.Hour || (h == _end.Hour && _end.Minute > 0); h++)
+            {
+                var t = new TimeOnly(h, 0);
+                <div class="agenda-hour" style="grid-row:@(Row(t)) / span @(60 / Slot);grid-column:1">@Format.Time(t)</div>
+                <div class="agenda-line" style="grid-row:@(Row(t));grid-column:2 / span @Rooms.Count"></div>
+            }
+
+            @foreach (var s in Sessions)
+            {
+                var col = Rooms.FindIndex(r => r.Id == s.RoomId) + 2;
+                <a class="agenda-session" href="@($"/konferenzen/{Slug}/sessions/{s.Id}")"
+                   style="grid-column:@col;grid-row:@(Row(s.StartTime)) / @(Row(s.EndTime));border-left-color:@(s.TrackColor ?? "#9E9E9E")">
+                    <span class="agenda-time">@Format.Range(s.StartTime, s.EndTime)</span>
+                    <span class="agenda-title">@s.Title</span>
+                    @if (s.Speakers.Count > 0)
+                    {
+                        <span class="agenda-speakers">@string.Join(", ", s.Speakers.Select(x => x.Name))</span>
+                    }
+                    @if (s.TrackName is not null)
+                    {
+                        <span class="agenda-track" style="color:@s.TrackColor">@s.TrackName</span>
+                    }
+                </a>
+            }
+        </div>
+    </div>
+}
+
+@code {
+    private const int Slot = 5;        // Minuten pro Rasterzeile
+    private const int RowHeight = 11;  // Pixel pro Rasterzeile
+
+    [Parameter, EditorRequired] public List<SessionDto> Sessions { get; set; } = [];
+    [Parameter, EditorRequired] public List<RoomDto> Rooms { get; set; } = [];
+    [Parameter, EditorRequired] public string Slug { get; set; } = "";
+
+    private TimeOnly _start;
+    private TimeOnly _end;
+
+    protected override void OnParametersSet()
+    {
+        if (Sessions.Count == 0) return;
+        _start = new TimeOnly(Sessions.Min(s => s.StartTime).Hour, 0);
+        var last = Sessions.Max(s => s.EndTime);
+        _end = last.Minute == 0 ? last : new TimeOnly(Math.Min(last.Hour + 1, 23), last.Hour >= 23 ? 59 : 0);
+    }
+
+    // Zeile 1 ist der Raum-Header.
+    private int Row(TimeOnly t) => (int)((t - _start).TotalMinutes / Slot) + 2;
+
+    private string GridStyle =>
+        $"grid-template-columns:64px repeat({Rooms.Count}, minmax(190px, 1fr));" +
+        $"grid-template-rows:48px repeat({(int)Math.Ceiling((_end - _start).TotalMinutes / Slot)}, {RowHeight}px);";
+}

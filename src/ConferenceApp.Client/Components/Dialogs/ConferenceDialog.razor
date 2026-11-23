@@ -1,0 +1,28 @@
+<FormDialog TModel="ConferenceRequest" Model="Model" OnSave="OnSave">
+    <MudTextField @bind-Value="Model.Name" For="@(() => Model.Name)" Label="Name" Required="true" AutoFocus="true" />
+    <MudTextField @bind-Value="Model.Slug" For="@(() => Model.Slug)" Label="Slug (für die URL)" HelperText="z. B. devconf-2027" Required="true" />
+    <MudTextField @bind-Value="Model.Location" For="@(() => Model.Location)" Label="Ort" />
+    <MudStack Row="true" Spacing="3">
+        <MudDatePicker @bind-Date="Start" Label="Startdatum" DateFormat="dd.MM.yyyy" Required="true" />
+        <MudDatePicker @bind-Date="End" Label="Enddatum" DateFormat="dd.MM.yyyy" Required="true" />
+    </MudStack>
+    <ValidationMessage For="@(() => Model.EndDate)" class="mud-error-text mud-typography-caption" />
+    <MudTextField @bind-Value="Model.Description" For="@(() => Model.Description)" Label="Beschreibung" Lines="4" />
+</FormDialog>
+
+@code {
+    [Parameter] public ConferenceRequest Model { get; set; } = new();
+    [Parameter] public Func<ConferenceRequest, Task> OnSave { get; set; } = default!;
+
+    private DateTime? Start
+    {
+        get => Model.StartDate.ToDateTime(TimeOnly.MinValue);
+        set { if (value is { } v) Model.StartDate = DateOnly.FromDateTime(v); }
+    }
+
+    private DateTime? End
+    {
+        get => Model.EndDate.ToDateTime(TimeOnly.MinValue);
+        set { if (value is { } v) Model.EndDate = DateOnly.FromDateTime(v); }
+    }
+}

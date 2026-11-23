@@ -1,0 +1,79 @@
+@page "/konferenzen/{Slug}"
+@inject ApiClient Api
+
+<PageTitle>@(_agenda?.Conference.Name ?? "Agenda")</PageTitle>
+
+<PageState Loading="_agenda is null" Error="@_error">
+    @{ var conf = _agenda!.Conference; }
+    <MudBreadcrumbs Items="_breadcrumbs" Class="pa-0 mb-1" />
+
+    <header class="agenda-header">
+        <MudText Typo="Typo.h5" Class="agenda-header-title">@conf.Name</MudText>
+        <div class="agenda-header-meta">
+            <span><MudIcon Icon="@Icons.Material.Outlined.Event" Size="Size.Small" />@Format.DateRange(conf.StartDate, conf.EndDate)</span>
+            @if (conf.Location is not null)
+            {
+                <span><MudIcon Icon="@Icons.Material.Outlined.Place" Size="Size.Small" />@conf.Location</span>
+            }
+        </div>
+        @if (!string.IsNullOrWhiteSpace(conf.Description))
+        {
+            <MudText Typo="Typo.body2" Class="agenda-header-desc prewrap">@conf.Description</MudText>
+        }
+    </header>
+
+    @* Eine Toolbar: Tage links, Track-Filter rechts *@
+    <div class="agenda-toolbar">
+        <div class="agenda-days" role="tablist">
+            @foreach (var day in Format.Days(conf.StartDate, conf.EndDate))
+            {
+                var selected = day == _day;
+                <MudButton Size="Size.Small" Variant="@(selected ? Variant.Filled : Variant.Text)" Color="Color.Primary"
+                           DropShadow="false" role="tab" aria-selected="@(selected ? "true" : "false")"
+                           OnClick="() => _day = day">@Format.Day(day)</MudButton>
+            }
+        </div>
+
+        @if (_agenda.Tracks.Count > 0)
+        {
+            <div class="agenda-tracks">
+                <MudChip T="string" Size="Size.Small" Variant="@(_trackFilter is null ? Variant.Filled : Variant.Outlined)" Color="Color.Primary"
+                         OnClick="() => _trackFilter = null">Alle Tracks</MudChip>
+                @foreach (var t in _agenda.Tracks)
+                {
+                    <MudChip T="string" Size="Size.Small" Variant="@(_trackFilter == t.Id ? Variant.Filled : Variant.Outlined)"
+                             Style="@($"border-color:{t.Color};" + (_trackFilter == t.Id ? $"background:{t.Color};color:#fff" : $"color:{t.Color}"))"
+                             OnClick="() => _trackFilter = t.Id">@t.Name</MudChip>
+                }
+            </div>
+        }
+    </div>
+
+    <AgendaGrid Sessions="SessionsFor(_day)" Rooms="_agenda.Rooms" Slug="@Slug" />
+</PageState>
+
+@code {
+    [Parameter] public string Slug { get; set; } = "";
+
+    private AgendaDto? _agenda;
+    private string? _error;
+    private int? _trackFilter;
+    private DateOnly _day;
+    private List<BreadcrumbItem> _breadcrumbs = [];
+
+    protected override async Task OnParametersSetAsync()
+    {
+        _agenda = null;
+        _error = null;
+        try
+        {
+            _agenda = await Api.GetAgendaAsync(Slug);
+            _day = _agenda.Conference.StartDate;
+            _breadcrumbs = [new("Konferenzen", "/"), new(_agenda.Conference.Name, null, disabled: true)];
+        }
+        catch (ApiException ex) { _error = ex.IsNotFound ? "Diese Konferenz gibt es nicht." : ex.Message; }
+    }
+
+    private List<SessionDto> SessionsFor(DateOnly day) =>
+        _agenda!.Sessions.Where(s => s.Day == day && (_trackFilter is null || s.TrackId == _trackFilter)).ToList();
+}

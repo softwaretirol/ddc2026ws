@@ -1,0 +1,9 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/ConferenceApp.Api/ConferenceApp.Api.csproj" />
+    <Project Path="src/ConferenceApp.AppHost/ConferenceApp.AppHost.csproj" />
+    <Project Path="src/ConferenceApp.Client/ConferenceApp.Client.csproj" />
+    <Project Path="src/ConferenceApp.ServiceDefaults/ConferenceApp.ServiceDefaults.csproj" />
+    <Project Path="src/ConferenceApp.Shared/ConferenceApp.Shared.csproj" />
+  </Folder>
+</Solution>

@@ -1,0 +1,81 @@
+@page "/admin/speaker"
+@inject ApiClient Api
+@inject IDialogService Dialogs
+@inject ISnackbar Snackbar
+
+<PageTitle>Admin – Speaker</PageTitle>
+
+<div class="d-flex align-center mb-4">
+    <MudText Typo="Typo.h4">Speaker verwalten</MudText>
+    <MudSpacer />
+    <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add" OnClick="() => EditAsync(null)">Neuer Speaker</MudButton>
+</div>
+
+<PageState Loading="_items is null" Error="@_error">
+    <MudTable Items="_items" Hover="true" Elevation="1" Filter="Matches" Breakpoint="Breakpoint.Sm">
+        <ToolBarContent>
+            <MudTextField @bind-Value="_search" Placeholder="Suchen…" Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search"
+                          Immediate="true" Clearable="true" Class="mt-0" />
+        </ToolBarContent>
+        <HeaderContent>
+            <MudTh></MudTh>
+            <MudTh>Name</MudTh>
+            <MudTh>Firma</MudTh>
+            <MudTh Style="text-align:right">Aktionen</MudTh>
+        </HeaderContent>
+        <RowTemplate>
+            <MudTd><SpeakerAvatar Name="@context.Name" PhotoUrl="@context.PhotoUrl" Size="Size.Small" /></MudTd>
+            <MudTd DataLabel="Name"><MudLink Href="@($"/speaker/{context.Id}")">@context.Name</MudLink></MudTd>
+            <MudTd DataLabel="Firma">@context.Company</MudTd>
+            <MudTd Style="text-align:right;white-space:nowrap">
+                <MudIconButton Icon="@Icons.Material.Filled.Edit" OnClick="() => EditAsync(context)" aria-label="Bearbeiten" />
+                <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" OnClick="() => DeleteAsync(context)" aria-label="Löschen" />
+            </MudTd>
+        </RowTemplate>
+        <NoRecordsContent><MudText>Keine Speaker gefunden.</MudText></NoRecordsContent>
+    </MudTable>
+</PageState>
+
+@code {
+    private List<SpeakerDto>? _items;
+    private string? _error;
+    private string _search = "";
+
+    protected override Task OnInitializedAsync() => LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        try { _items = await Api.GetSpeakersAsync(); }
+        catch (ApiException ex) { _error = ex.Message; }
+    }
+
+    private bool Matches(SpeakerDto s) =>
+        string.IsNullOrWhiteSpace(_search)
+        || s.Name.Contains(_search, StringComparison.OrdinalIgnoreCase)
+        || (s.Company?.Contains(_search, StringComparison.OrdinalIgnoreCase) ?? false);
+
+    private async Task EditAsync(SpeakerDto? existing)
+    {
+        var model = existing is null
+            ? new SpeakerRequest()
+            : new SpeakerRequest { Name = existing.Name, Bio = existing.Bio, Company = existing.Company, PhotoUrl = existing.PhotoUrl, Links = [.. existing.Links] };
+
+        var parameters = new DialogParameters<SpeakerDialog>
+        {
+            { x => x.Model, model },
+            { x => x.OnSave, r => existing is null ? Api.CreateSpeakerAsync(r) : Api.UpdateSpeakerAsync(existing.Id, r) },
+        };
+
+        if (await Dialogs.ShowFormAsync(existing is null ? "Neuer Speaker" : "Speaker bearbeiten", parameters))
+        {
+            Snackbar.Add("Gespeichert.", Severity.Success);
+            await LoadAsync();
+        }
+    }
+
+    private async Task DeleteAsync(SpeakerDto s)
+    {
+        if (await Dialogs.ConfirmDeleteAsync(Snackbar, $"Speaker „{s.Name}“ löschen? Die Zuordnung zu Sessions wird entfernt.", () => Api.DeleteSpeakerAsync(s.Id)))
+            await LoadAsync();
+    }
+}

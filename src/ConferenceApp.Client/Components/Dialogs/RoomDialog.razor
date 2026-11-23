@@ -1,0 +1,9 @@
+<FormDialog TModel="RoomRequest" Model="Model" OnSave="OnSave">
+    <MudTextField @bind-Value="Model.Name" For="@(() => Model.Name)" Label="Name" Required="true" AutoFocus="true" />
+    <MudNumericField @bind-Value="Model.Capacity" For="@(() => Model.Capacity)" Label="Kapazität (optional)" Min="1" />
+</FormDialog>
+
+@code {
+    [Parameter] public RoomRequest Model { get; set; } = new();
+    [Parameter] public Func<RoomRequest, Task> OnSave { get; set; } = default!;
+}

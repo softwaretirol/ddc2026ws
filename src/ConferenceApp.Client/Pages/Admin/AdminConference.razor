@@ -1,0 +1,199 @@
+@page "/admin/konferenzen/{Id:int}"
+@inject ApiClient Api
+@inject IDialogService Dialogs
+@inject ISnackbar Snackbar
+
+<PageTitle>Admin – @(_conference?.Name ?? "Konferenz")</PageTitle>
+
+<PageState Loading="_conference is null" Error="@_error">
+    <MudBreadcrumbs Items="_breadcrumbs" Class="px-0 pt-0" />
+    <div class="d-flex align-center flex-wrap gap-2 mb-4">
+        <div>
+            <MudText Typo="Typo.h4">@_conference!.Name</MudText>
+            <MudText Typo="Typo.subtitle1" Color="Color.Secondary">@Format.DateRange(_conference.StartDate, _conference.EndDate) · @_conference.Location</MudText>
+        </div>
+        <MudSpacer />
+        <MudButton Href="@($"/konferenzen/{_conference.Slug}")" Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.OpenInNew">Öffentliche Agenda</MudButton>
+    </div>
+
+    <MudTabs Elevation="1" Rounded="true" ApplyEffectsToContainer="true" TabPanelsClass="pa-4">
+        <MudTabPanel Text="@($"Sessions ({_sessions.Count})")" Icon="@Icons.Material.Filled.Mic">
+            <div class="d-flex mb-3">
+                <MudSpacer />
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add" OnClick="() => EditSessionAsync(null)"
+                           Disabled="_rooms.Count == 0">Neue Session</MudButton>
+            </div>
+            @if (_rooms.Count == 0)
+            {
+                <MudAlert Severity="Severity.Info" Class="mb-3">Lege zuerst mindestens einen Raum an.</MudAlert>
+            }
+            <MudTable Items="_sessions" Hover="true" Dense="true" Elevation="0" Breakpoint="Breakpoint.Sm">
+                <HeaderContent>
+                    <MudTh>Tag</MudTh>
+                    <MudTh>Zeit</MudTh>
+                    <MudTh>Raum</MudTh>
+                    <MudTh>Titel</MudTh>
+                    <MudTh>Track</MudTh>
+                    <MudTh>Speaker</MudTh>
+                    <MudTh Style="text-align:right">Aktionen</MudTh>
+                </HeaderContent>
+                <RowTemplate>
+                    <MudTd DataLabel="Tag">@Format.Day(context.Day)</MudTd>
+                    <MudTd DataLabel="Zeit">@Format.Range(context.StartTime, context.EndTime)</MudTd>
+                    <MudTd DataLabel="Raum">@context.RoomName</MudTd>
+                    <MudTd DataLabel="Titel">@context.Title</MudTd>
+                    <MudTd DataLabel="Track">
+                        @if (context.TrackName is not null) { <span class="color-dot" style="background:@context.TrackColor"></span>@context.TrackName }
+                    </MudTd>
+                    <MudTd DataLabel="Speaker">@string.Join(", ", context.Speakers.Select(s => s.Name))</MudTd>
+                    <MudTd Style="text-align:right;white-space:nowrap">
+                        <MudIconButton Icon="@Icons.Material.Filled.Edit" OnClick="() => EditSessionAsync(context)" aria-label="Bearbeiten" />
+                        <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" aria-label="Löschen"
+                                       OnClick="() => DeleteSessionAsync(context)" />
+                    </MudTd>
+                </RowTemplate>
+                <NoRecordsContent><MudText>Noch keine Sessions.</MudText></NoRecordsContent>
+            </MudTable>
+        </MudTabPanel>
+
+        <MudTabPanel Text="@($"Tracks ({_tracks.Count})")" Icon="@Icons.Material.Filled.Label">
+            <div class="d-flex mb-3">
+                <MudSpacer />
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add" OnClick="() => EditTrackAsync(null)">Neuer Track</MudButton>
+            </div>
+            <MudTable Items="_tracks" Hover="true" Dense="true" Elevation="0">
+                <HeaderContent>
+                    <MudTh>Name</MudTh>
+                    <MudTh>Farbe</MudTh>
+                    <MudTh Style="text-align:right">Aktionen</MudTh>
+                </HeaderContent>
+                <RowTemplate>
+                    <MudTd DataLabel="Name"><span class="color-dot" style="background:@context.Color"></span>@context.Name</MudTd>
+                    <MudTd DataLabel="Farbe">@context.Color</MudTd>
+                    <MudTd Style="text-align:right;white-space:nowrap">
+                        <MudIconButton Icon="@Icons.Material.Filled.Edit" OnClick="() => EditTrackAsync(context)" aria-label="Bearbeiten" />
+                        <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" aria-label="Löschen"
+                                       OnClick="() => DeleteTrackAsync(context)" />
+                    </MudTd>
+                </RowTemplate>
+                <NoRecordsContent><MudText>Noch keine Tracks.</MudText></NoRecordsContent>
+            </MudTable>
+        </MudTabPanel>
+
+        <MudTabPanel Text="@($"Räume ({_rooms.Count})")" Icon="@Icons.Material.Filled.MeetingRoom">
+            <div class="d-flex mb-3">
+                <MudSpacer />
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add" OnClick="() => EditRoomAsync(null)">Neuer Raum</MudButton>
+            </div>
+            <MudTable Items="_rooms" Hover="true" Dense="true" Elevation="0">
+                <HeaderContent>
+                    <MudTh>Name</MudTh>
+                    <MudTh>Kapazität</MudTh>
+                    <MudTh Style="text-align:right">Aktionen</MudTh>
+                </HeaderContent>
+                <RowTemplate>
+                    <MudTd DataLabel="Name">@context.Name</MudTd>
+                    <MudTd DataLabel="Kapazität">@context.Capacity</MudTd>
+                    <MudTd Style="text-align:right;white-space:nowrap">
+                        <MudIconButton Icon="@Icons.Material.Filled.Edit" OnClick="() => EditRoomAsync(context)" aria-label="Bearbeiten" />
+                        <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" aria-label="Löschen"
+                                       OnClick="() => DeleteRoomAsync(context)" />
+                    </MudTd>
+                </RowTemplate>
+                <NoRecordsContent><MudText>Noch keine Räume.</MudText></NoRecordsContent>
+            </MudTable>
+        </MudTabPanel>
+    </MudTabs>
+</PageState>
+
+@code {
+    [Parameter] public int Id { get; set; }
+
+    private ConferenceDto? _conference;
+    private List<SessionDto> _sessions = [];
+    private List<TrackDto> _tracks = [];
+    private List<RoomDto> _rooms = [];
+    private List<SpeakerDto> _speakers = [];
+    private string? _error;
+    private List<BreadcrumbItem> _breadcrumbs = [];
+
+    protected override Task OnParametersSetAsync() => LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        try
+        {
+            var conference = Api.GetConferenceAsync(Id);
+            var sessions = Api.GetSessionsAsync(Id);
+            var tracks = Api.GetTracksAsync(Id);
+            var rooms = Api.GetRoomsAsync(Id);
+            var speakers = Api.GetSpeakersAsync();
+            await Task.WhenAll(conference, sessions, tracks, rooms, speakers);
+
+            (_conference, _sessions, _tracks, _rooms, _speakers) = (conference.Result, sessions.Result, tracks.Result, rooms.Result, speakers.Result);
+            _breadcrumbs = [new("Admin", "/admin"), new(_conference.Name, null, disabled: true)];
+        }
+        catch (ApiException ex) { _error = ex.IsNotFound ? "Diese Konferenz gibt es nicht." : ex.Message; }
+    }
+
+    private async Task EditSessionAsync(SessionDto? s)
+    {
+        var model = s is null
+            ? new SessionRequest { Day = _conference!.StartDate, RoomId = _rooms.FirstOrDefault()?.Id ?? 0 }
+            : new SessionRequest
+            {
+                Title = s.Title, Abstract = s.Abstract, Day = s.Day, StartTime = s.StartTime, EndTime = s.EndTime,
+                RoomId = s.RoomId, TrackId = s.TrackId, SpeakerIds = s.Speakers.Select(x => x.Id).ToList(),
+            };
+
+        var parameters = new DialogParameters<SessionDialog>
+        {
+            { x => x.Model, model },
+            { x => x.Conference, _conference! },
+            { x => x.Rooms, _rooms },
+            { x => x.Tracks, _tracks },
+            { x => x.Speakers, _speakers },
+            { x => x.OnSave, r => s is null ? Api.CreateSessionAsync(Id, r) : Api.UpdateSessionAsync(Id, s.Id, r) },
+        };
+        await AfterSaveAsync(await Dialogs.ShowFormAsync(s is null ? "Neue Session" : "Session bearbeiten", parameters));
+    }
+
+    private async Task EditTrackAsync(TrackDto? t)
+    {
+        var model = t is null ? new TrackRequest() : new TrackRequest { Name = t.Name, Color = t.Color };
+        var parameters = new DialogParameters<TrackDialog>
+        {
+            { x => x.Model, model },
+            { x => x.OnSave, r => t is null ? Api.CreateTrackAsync(Id, r) : Api.UpdateTrackAsync(Id, t.Id, r) },
+        };
+        await AfterSaveAsync(await Dialogs.ShowFormAsync(t is null ? "Neuer Track" : "Track bearbeiten", parameters));
+    }
+
+    private async Task EditRoomAsync(RoomDto? room)
+    {
+        var model = room is null ? new RoomRequest() : new RoomRequest { Name = room.Name, Capacity = room.Capacity };
+        var parameters = new DialogParameters<RoomDialog>
+        {
+            { x => x.Model, model },
+            { x => x.OnSave, r => room is null ? Api.CreateRoomAsync(Id, r) : Api.UpdateRoomAsync(Id, room.Id, r) },
+        };
+        await AfterSaveAsync(await Dialogs.ShowFormAsync(room is null ? "Neuer Raum" : "Raum bearbeiten", parameters));
+    }
+
+    private async Task AfterSaveAsync(bool saved)
+    {
+        if (!saved) return;
+        Snackbar.Add("Gespeichert.", Severity.Success);
+        await LoadAsync();
+    }
+
+    private Task DeleteSessionAsync(SessionDto s) => DeleteAsync($"Session „{s.Title}“ löschen?", () => Api.DeleteSessionAsync(Id, s.Id));
+    private Task DeleteTrackAsync(TrackDto t) => DeleteAsync($"Track „{t.Name}“ löschen? Sessions bleiben ohne Track erhalten.", () => Api.DeleteTrackAsync(Id, t.Id));
+    private Task DeleteRoomAsync(RoomDto r) => DeleteAsync($"Raum „{r.Name}“ löschen?", () => Api.DeleteRoomAsync(Id, r.Id));
+
+    private async Task DeleteAsync(string text, Func<Task> delete)
+    {
+        if (await Dialogs.ConfirmDeleteAsync(Snackbar, text, delete))
+            await LoadAsync();
+    }
+}
