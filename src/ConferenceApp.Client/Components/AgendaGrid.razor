@@ -37,7 +37,7 @@ else
                     }
                     @if (s.TrackName is not null)
                     {
-                        <span class="agenda-track" style="color:@s.TrackColor">@s.TrackName</span>
+                        <span class="agenda-track"><span class="color-dot" style="background:@s.TrackColor" aria-hidden="true"></span>@s.TrackName</span>
                     }
                 </a>
             }

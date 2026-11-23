@@ -9,7 +9,7 @@
     <MudPaper Class="pa-6" Elevation="1" Style="@($"border-left:6px solid {_session!.TrackColor ?? "#9E9E9E"}")">
         @if (_session.TrackName is not null)
         {
-            <MudText Typo="Typo.overline" Style="@($"color:{_session.TrackColor}")">@_session.TrackName</MudText>
+            <MudText Typo="Typo.overline"><span class="color-dot" style="background:@_session.TrackColor" aria-hidden="true"></span>@_session.TrackName</MudText>
         }
         <MudText Typo="Typo.h4" GutterBottom="true">@_session.Title</MudText>
 
