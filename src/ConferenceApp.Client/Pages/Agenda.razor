@@ -3,7 +3,19 @@
 
 <PageTitle>@(_agenda?.Conference.Name ?? "Agenda")</PageTitle>
 
-<PageState Loading="_agenda is null" Error="@_error">
+<PageState Loading="_agenda is null" Error="@_error" NotFound="_notFound" OnRetry="LoadAsync">
+    <Skeleton>
+        <MudSkeleton Width="160px" Class="mb-1" />
+        <header class="agenda-header">
+            <MudSkeleton Width="45%" Height="36px" />
+            <MudSkeleton Width="30%" />
+        </header>
+        <div class="agenda-toolbar">
+            <MudSkeleton SkeletonType="SkeletonType.Rectangle" Width="280px" Height="30px" Class="rounded" />
+        </div>
+        <MudSkeleton SkeletonType="SkeletonType.Rectangle" Height="420px" Class="rounded" />
+    </Skeleton>
+    <ChildContent>
     @{ var conf = _agenda!.Conference; }
     <MudBreadcrumbs Items="_breadcrumbs" Class="pa-0 mb-1" />
 
@@ -50,6 +62,7 @@
     </div>
 
     <AgendaGrid Sessions="SessionsFor(_day)" Rooms="_agenda.Rooms" Slug="@Slug" />
+    </ChildContent>
 </PageState>
 
 @code {
@@ -57,21 +70,29 @@
 
     private AgendaDto? _agenda;
     private string? _error;
+    private bool _notFound;
     private int? _trackFilter;
     private DateOnly _day;
     private List<BreadcrumbItem> _breadcrumbs = [];
 
-    protected override async Task OnParametersSetAsync()
+    protected override Task OnParametersSetAsync() => LoadAsync();
+
+    private async Task LoadAsync()
     {
         _agenda = null;
         _error = null;
+        _notFound = false;
         try
         {
             _agenda = await Api.GetAgendaAsync(Slug);
             _day = _agenda.Conference.StartDate;
             _breadcrumbs = [new("Konferenzen", "/"), new(_agenda.Conference.Name, null, disabled: true)];
         }
-        catch (ApiException ex) { _error = ex.IsNotFound ? "Diese Konferenz gibt es nicht." : ex.Message; }
+        catch (ApiException ex)
+        {
+            _notFound = ex.IsNotFound;
+            _error = ex.IsNotFound ? "Diese Konferenz gibt es nicht." : ex.Message;
+        }
     }
 
     private List<SessionDto> SessionsFor(DateOnly day) =>

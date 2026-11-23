@@ -5,7 +5,33 @@
 
 <MudText Typo="Typo.h4" GutterBottom="true">Speaker</MudText>
 
-<PageState Loading="_speakers is null" Error="@_error">
+<PageState Loading="_speakers is null" Error="@_error" OnRetry="LoadAsync">
+    <Skeleton>
+        <MudGrid>
+            @for (var i = 0; i < 8; i++)
+            {
+                <MudItem xs="12" sm="6" md="4" lg="3">
+                    <MudCard Elevation="1" Class="h-100">
+                        <MudCardHeader>
+                            <CardHeaderAvatar><MudSkeleton SkeletonType="SkeletonType.Circle" Width="56px" Height="56px" /></CardHeaderAvatar>
+                            <CardHeaderContent>
+                                <MudSkeleton Width="70%" Height="28px" />
+                                <MudSkeleton Width="50%" />
+                            </CardHeaderContent>
+                        </MudCardHeader>
+                    </MudCard>
+                </MudItem>
+            }
+        </MudGrid>
+    </Skeleton>
+    <ChildContent>
+    @if (_speakers!.Count == 0)
+    {
+        <EmptyState Icon="@Icons.Material.Outlined.RecordVoiceOver" Title="Noch keine Speaker"
+                    Text="Sobald Speaker für eine Konferenz feststehen, stellen wir sie hier vor." />
+    }
+    else
+    {
     <MudGrid>
         @foreach (var s in _speakers!)
         {
@@ -22,14 +48,19 @@
             </MudItem>
         }
     </MudGrid>
+    }
+    </ChildContent>
 </PageState>
 
 @code {
     private List<SpeakerDto>? _speakers;
     private string? _error;
 
-    protected override async Task OnInitializedAsync()
+    protected override Task OnInitializedAsync() => LoadAsync();
+
+    private async Task LoadAsync()
     {
+        _error = null;
         try { _speakers = await Api.GetSpeakersAsync(); }
         catch (ApiException ex) { _error = ex.Message; }
     }
