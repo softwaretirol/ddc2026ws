@@ -428,3 +428,13 @@ FodyWeavers.xsd
 # Claude Code: lokale Einstellungen und Agenten-Worktrees
 .claude/settings.local.json
 .claude/worktrees/
+
+# Terraform/Packer (infra/): State, Provider-Cache und erzeugte Zugangsdaten enthalten Geheimnisse
+**/.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+crash.log
+*.auto.tfvars
+infra/**/out/
+packer_cache/
