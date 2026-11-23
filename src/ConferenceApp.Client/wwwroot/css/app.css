@@ -1,3 +1,15 @@
+/*
+ * Abstands-Skala: 8 / 16 / 24 px.
+ * In Razor die MudBlazor-Klassen mit Stufe 2 / 4 / 6 verwenden (pa-2 = 8 px, mb-4 = 16 px, pa-6 = 24 px),
+ * in CSS die Variablen unten. Keine Inline-Styles für Abstände – nur datengetriebene Werte
+ * (Track-Farben, Rasterpositionen) bleiben inline.
+ */
+:root {
+    --space-1: 8px;
+    --space-2: 16px;
+    --space-3: 24px;
+}
+
 html, body {
     font-family: Roboto, Helvetica, Arial, sans-serif;
 }
@@ -25,35 +37,70 @@ html, body {
 
 .breadcrumbs-current { color: var(--mud-palette-text-secondary); }
 
-/* ---------- Agenda-Kopf & Toolbar ---------- */
-.agenda-header { margin-bottom: 12px; }
-.agenda-header-title { line-height: 1.25; }
+/* ---------- Layouts ---------- */
+/* Öffentlich: Footer am Seitenende, auch bei wenig Inhalt */
+.public-main { display: flex; flex-direction: column; min-height: 100vh; }
+.public-content { flex: 1 0 auto; }
 
-.agenda-header-meta {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 4px 16px;
-    margin-top: 2px;
+.public-footer {
+    padding: 12px 0;
+    border-top: 1px solid var(--mud-palette-lines-default);
     font-size: .875rem;
     color: var(--mud-palette-text-secondary);
 }
 
-.agenda-header-meta span { display: inline-flex; align-items: center; gap: 4px; }
-.agenda-header-desc { margin-top: 6px; max-width: 80ch; }
+/* Verwaltung: neutral-dunkle Kopfleiste statt Primärfarbe */
+.mud-appbar.admin-appbar { background-color: #37474F; }
 
+/* ---------- Seitenkopf (Components/PageHeader.razor) ---------- */
+.page-header { margin-bottom: var(--space-3); }
+
+.page-header .page-header-breadcrumbs { padding: 0; margin-bottom: var(--space-1); }
+
+.page-header-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-1) var(--space-2);
+}
+
+.page-header-text { flex: 1 1 auto; min-width: 0; }
+.page-header-title { overflow-wrap: anywhere; }
+.page-header-dense .page-header-title { font-size: 1.5rem; }
+
+.page-header-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px var(--space-2);
+    margin-top: 4px;
+    font-size: .875rem;
+    color: var(--mud-palette-text-secondary);
+}
+
+.page-header-meta > span { display: inline-flex; align-items: center; gap: 4px; }
+
+.page-header-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-1); }
+
+.page-header-desc { margin-top: var(--space-1); max-width: 80ch; }
+
+/* ---------- Agenda-Toolbar ---------- */
 .agenda-toolbar {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
     justify-content: space-between;
-    gap: 8px 16px;
-    padding: 6px 0;
-    margin-bottom: 12px;
+    gap: var(--space-1) var(--space-2);
+    padding: var(--space-1) 0;
+    margin-bottom: var(--space-2);
     border-bottom: 1px solid var(--mud-palette-lines-default);
 }
 
 .agenda-days, .agenda-tracks { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
 .agenda-tracks .mud-chip { margin: 0; }
+
+/* Tagesbuttons bleiben einzeilig; bei vielen Tagen horizontal scrollen statt umbrechen. */
+.agenda-days { flex-wrap: nowrap; max-width: 100%; overflow-x: auto; }
+.agenda-day { flex: 0 0 auto; white-space: nowrap; }
 
 /* ---------- Agenda-Raster ---------- */
 .agenda-scroll {
@@ -146,6 +193,21 @@ html, body {
 }
 
 .prewrap { white-space: pre-wrap; }
+
+/* Farbiger Randstreifen; die Farbe kommt per --track-color aus den Daten. */
+.track-accent { border-left: 6px solid var(--track-color, #9E9E9E); }
+
+/* Aktionsspalte in Admin-Tabellen */
+.col-actions { text-align: right; white-space: nowrap; }
+
+/* Nativer Farbwähler im Track-Dialog */
+.color-input {
+    width: 48px;
+    height: 40px;
+    border: none;
+    background: none;
+    cursor: pointer;
+}
 
 /* ---------- Blazor-Standard: Ladeanzeige & Fehlerleiste ---------- */
 #blazor-error-ui {

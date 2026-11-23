@@ -4,21 +4,20 @@
 <PageTitle>@(_session?.Title ?? "Session")</PageTitle>
 
 <PageState Loading="_session is null" Error="@_error">
-    <Breadcrumbs Items="_breadcrumbs" Class="px-0 pt-0" />
+    <PageHeader Title="@_session!.Title" Breadcrumbs="_breadcrumbs">
+        <Meta>
+            @if (_session.TrackName is not null)
+            {
+                <span><span class="color-dot" style="background:@_session.TrackColor"></span>@_session.TrackName</span>
+            }
+            <span><MudIcon Icon="@Icons.Material.Outlined.Event" Size="Size.Small" />@Format.Day(_session.Day)</span>
+            <span><MudIcon Icon="@Icons.Material.Outlined.Schedule" Size="Size.Small" />@Format.Range(_session.StartTime, _session.EndTime)</span>
+            <span><MudIcon Icon="@Icons.Material.Outlined.MeetingRoom" Size="Size.Small" />@_session.RoomName</span>
+        </Meta>
+    </PageHeader>
 
-    <MudPaper Class="pa-6" Elevation="1" Style="@($"border-left:6px solid {_session!.TrackColor ?? "#9E9E9E"}")">
-        @if (_session.TrackName is not null)
-        {
-            <MudText Typo="Typo.overline" Style="@($"color:{_session.TrackColor}")">@_session.TrackName</MudText>
-        }
-        <MudText Typo="Typo.h4" HtmlTag="h1" GutterBottom="true">@_session.Title</MudText>
-
-        <div class="d-flex flex-wrap gap-4 mb-4">
-            <MudText Typo="Typo.body1"><MudIcon Icon="@Icons.Material.Filled.Event" Size="Size.Small" Class="mr-1" />@Format.Day(_session.Day)</MudText>
-            <MudText Typo="Typo.body1"><MudIcon Icon="@Icons.Material.Filled.Schedule" Size="Size.Small" Class="mr-1" />@Format.Range(_session.StartTime, _session.EndTime)</MudText>
-            <MudText Typo="Typo.body1"><MudIcon Icon="@Icons.Material.Filled.MeetingRoom" Size="Size.Small" Class="mr-1" />@_session.RoomName</MudText>
-        </div>
-
+    @* Randfarbe kommt aus dem Track; Breite/Abstände stehen in .track-accent (app.css). *@
+    <MudPaper Class="pa-6 track-accent" Elevation="1" Style="@($"--track-color:{_session.TrackColor ?? "#9E9E9E"}")">
         @if (!string.IsNullOrWhiteSpace(_session.Abstract))
         {
             <MudText Typo="Typo.body1" Class="prewrap mb-6">@_session.Abstract</MudText>
@@ -26,11 +25,11 @@
 
         @if (_session.Speakers.Count > 0)
         {
-            <MudText Typo="Typo.h6" GutterBottom="true">Speaker</MudText>
-            <MudStack Row="true" Wrap="Wrap.Wrap" Spacing="3">
+            <MudText Typo="Typo.h2" Class="mb-2">Speaker</MudText>
+            <MudStack Row="true" Wrap="Wrap.Wrap" Spacing="4">
                 @foreach (var sp in _session.Speakers)
                 {
-                    <MudPaper Outlined="true" Class="pa-3 d-flex align-center gap-3">
+                    <MudPaper Outlined="true" Class="pa-4 d-flex align-center gap-4">
                         <SpeakerAvatar Name="@sp.Name" PhotoUrl="@sp.PhotoUrl" />
                         <div>
                             <MudLink Href="@($"/speaker/{sp.Id}")" Typo="Typo.subtitle1">@sp.Name</MudLink>

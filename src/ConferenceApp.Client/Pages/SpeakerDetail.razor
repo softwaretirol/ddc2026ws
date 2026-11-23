@@ -5,17 +5,17 @@
 
 <PageState Loading="_detail is null" Error="@_error">
     @{ var sp = _detail!.Speaker; }
-    <Breadcrumbs Items="_breadcrumbs" Class="px-0 pt-0" />
+    <PageHeader Title="@sp.Name" Breadcrumbs="_breadcrumbs">
+        <Leading><SpeakerAvatar Name="@sp.Name" PhotoUrl="@sp.PhotoUrl" Size="Size.Large" /></Leading>
+        <Meta>
+            @if (!string.IsNullOrWhiteSpace(sp.Company))
+            {
+                <span>@sp.Company</span>
+            }
+        </Meta>
+    </PageHeader>
 
     <MudPaper Class="pa-6" Elevation="1">
-        <div class="d-flex align-center gap-4 mb-4">
-            <SpeakerAvatar Name="@sp.Name" PhotoUrl="@sp.PhotoUrl" Size="Size.Large" />
-            <div>
-                <MudText Typo="Typo.h4" HtmlTag="h1">@sp.Name</MudText>
-                <MudText Typo="Typo.subtitle1" Color="Color.Secondary">@sp.Company</MudText>
-            </div>
-        </div>
-
         @if (!string.IsNullOrWhiteSpace(sp.Bio))
         {
             <MudText Typo="Typo.body1" Class="prewrap mb-4">@sp.Bio</MudText>
@@ -31,7 +31,7 @@
             </div>
         }
 
-        <MudText Typo="Typo.h6" GutterBottom="true">Sessions</MudText>
+        <MudText Typo="Typo.h2" Class="mb-2">Sessions</MudText>
         @if (_detail.Sessions.Count == 0)
         {
             <MudText Typo="Typo.body2" Color="Color.Secondary">Noch keine Sessions zugeordnet.</MudText>
@@ -44,7 +44,7 @@
                     <MudListItem T="string" Href="@($"/konferenzen/{s.ConferenceSlug}/sessions/{s.Id}")" Icon="@Icons.Material.Filled.Mic">
                         <MudText Typo="Typo.subtitle1">@s.Title</MudText>
                         <MudText Typo="Typo.body2" Color="Color.Secondary">
-                            @s.ConferenceName · @Format.Day(s.Day) · @Format.Range(s.StartTime, s.EndTime) · @s.RoomName
+                            @s.ConferenceName · @Format.DayShort(s.Day) · @Format.Range(s.StartTime, s.EndTime) · @s.RoomName
                         </MudText>
                     </MudListItem>
                 }
