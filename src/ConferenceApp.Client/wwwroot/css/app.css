@@ -346,6 +346,7 @@ html, body {
 }
 .agenda-track { font-size: .72rem; font-weight: 500; text-transform: uppercase; letter-spacing: .03em; }
 .agenda-track .color-dot { width: 8px; height: 8px; margin-right: 4px; }
+.agenda-track-all { color: var(--mud-palette-text-secondary); }
 
 /* ---------- Agenda-Liste (mobil) ---------- */
 .agenda-list { display: flex; flex-direction: column; gap: 12px; }
@@ -439,7 +440,9 @@ html, body {
     cursor: pointer;
 }
 
-.visually-hidden {
+/* Nur für Screenreader sichtbar (.sr-only als gleichwertiger Alias) */
+.visually-hidden,
+.sr-only {
     position: absolute !important;
     width: 1px;
     height: 1px;
