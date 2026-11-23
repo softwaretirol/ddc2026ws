@@ -5,11 +5,11 @@
 
 <PageTitle>Admin – Speaker</PageTitle>
 
-<div class="d-flex align-center mb-4">
-    <MudText Typo="Typo.h4">Speaker verwalten</MudText>
-    <MudSpacer />
-    <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add" OnClick="() => EditAsync(null)">Neuer Speaker</MudButton>
-</div>
+<PageHeader Title="Speaker verwalten" Dense="true">
+    <Actions>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add" OnClick="() => EditAsync(null)">Neuer Speaker</MudButton>
+    </Actions>
+</PageHeader>
 
 <PageState Loading="_items is null" Error="@_error">
     <MudTable Items="_items" Hover="true" Elevation="1" Filter="Matches" Breakpoint="Breakpoint.Sm">
@@ -21,13 +21,13 @@
             <MudTh></MudTh>
             <MudTh>Name</MudTh>
             <MudTh>Firma</MudTh>
-            <MudTh Style="text-align:right">Aktionen</MudTh>
+            <MudTh Class="col-actions">Aktionen</MudTh>
         </HeaderContent>
         <RowTemplate>
             <MudTd><SpeakerAvatar Name="@context.Name" PhotoUrl="@context.PhotoUrl" Size="Size.Small" /></MudTd>
             <MudTd DataLabel="Name"><MudLink Href="@($"/speaker/{context.Id}")">@context.Name</MudLink></MudTd>
             <MudTd DataLabel="Firma">@context.Company</MudTd>
-            <MudTd Style="text-align:right;white-space:nowrap">
+            <MudTd Class="col-actions">
                 <MudIconButton Icon="@Icons.Material.Filled.Edit" OnClick="() => EditAsync(context)" aria-label="Bearbeiten" />
                 <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" OnClick="() => DeleteAsync(context)" aria-label="Löschen" />
             </MudTd>

@@ -6,26 +6,29 @@
 <PageTitle>Admin – @(_conference?.Name ?? "Konferenz")</PageTitle>
 
 <PageState Loading="_conference is null" Error="@_error">
-    <MudBreadcrumbs Items="_breadcrumbs" Class="px-0 pt-0" />
-    <div class="d-flex align-center flex-wrap gap-2 mb-4">
-        <div>
-            <MudText Typo="Typo.h4">@_conference!.Name</MudText>
-            <MudText Typo="Typo.subtitle1" Color="Color.Secondary">@Format.DateRange(_conference.StartDate, _conference.EndDate) · @_conference.Location</MudText>
-        </div>
-        <MudSpacer />
-        <MudButton Href="@($"/konferenzen/{_conference.Slug}")" Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.OpenInNew">Öffentliche Agenda</MudButton>
-    </div>
+    <PageHeader Title="@_conference!.Name" Breadcrumbs="_breadcrumbs" Dense="true">
+        <Meta>
+            <span><MudIcon Icon="@Icons.Material.Outlined.Event" Size="Size.Small" />@Format.DateRange(_conference.StartDate, _conference.EndDate)</span>
+            @if (_conference.Location is not null)
+            {
+                <span><MudIcon Icon="@Icons.Material.Outlined.Place" Size="Size.Small" />@_conference.Location</span>
+            }
+        </Meta>
+        <Actions>
+            <MudButton Href="@($"/konferenzen/{_conference.Slug}")" Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.OpenInNew">Öffentliche Agenda</MudButton>
+        </Actions>
+    </PageHeader>
 
     <MudTabs Elevation="1" Rounded="true" ApplyEffectsToContainer="true" TabPanelsClass="pa-4">
         <MudTabPanel Text="@($"Sessions ({_sessions.Count})")" Icon="@Icons.Material.Filled.Mic">
-            <div class="d-flex mb-3">
+            <div class="d-flex mb-4">
                 <MudSpacer />
                 <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add" OnClick="() => EditSessionAsync(null)"
                            Disabled="_rooms.Count == 0">Neue Session</MudButton>
             </div>
             @if (_rooms.Count == 0)
             {
-                <MudAlert Severity="Severity.Info" Class="mb-3">Lege zuerst mindestens einen Raum an.</MudAlert>
+                <MudAlert Severity="Severity.Info" Class="mb-4">Lege zuerst mindestens einen Raum an.</MudAlert>
             }
             <MudTable Items="_sessions" Hover="true" Dense="true" Elevation="0" Breakpoint="Breakpoint.Sm">
                 <HeaderContent>
@@ -35,10 +38,10 @@
                     <MudTh>Titel</MudTh>
                     <MudTh>Track</MudTh>
                     <MudTh>Speaker</MudTh>
-                    <MudTh Style="text-align:right">Aktionen</MudTh>
+                    <MudTh Class="col-actions">Aktionen</MudTh>
                 </HeaderContent>
                 <RowTemplate>
-                    <MudTd DataLabel="Tag">@Format.Day(context.Day)</MudTd>
+                    <MudTd DataLabel="Tag">@Format.DayShort(context.Day)</MudTd>
                     <MudTd DataLabel="Zeit">@Format.Range(context.StartTime, context.EndTime)</MudTd>
                     <MudTd DataLabel="Raum">@context.RoomName</MudTd>
                     <MudTd DataLabel="Titel">@context.Title</MudTd>
@@ -46,7 +49,7 @@
                         @if (context.TrackName is not null) { <span class="color-dot" style="background:@context.TrackColor"></span>@context.TrackName }
                     </MudTd>
                     <MudTd DataLabel="Speaker">@string.Join(", ", context.Speakers.Select(s => s.Name))</MudTd>
-                    <MudTd Style="text-align:right;white-space:nowrap">
+                    <MudTd Class="col-actions">
                         <MudIconButton Icon="@Icons.Material.Filled.Edit" OnClick="() => EditSessionAsync(context)" aria-label="Bearbeiten" />
                         <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" aria-label="Löschen"
                                        OnClick="() => DeleteSessionAsync(context)" />
@@ -57,7 +60,7 @@
         </MudTabPanel>
 
         <MudTabPanel Text="@($"Tracks ({_tracks.Count})")" Icon="@Icons.Material.Filled.Label">
-            <div class="d-flex mb-3">
+            <div class="d-flex mb-4">
                 <MudSpacer />
                 <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add" OnClick="() => EditTrackAsync(null)">Neuer Track</MudButton>
             </div>
@@ -65,12 +68,12 @@
                 <HeaderContent>
                     <MudTh>Name</MudTh>
                     <MudTh>Farbe</MudTh>
-                    <MudTh Style="text-align:right">Aktionen</MudTh>
+                    <MudTh Class="col-actions">Aktionen</MudTh>
                 </HeaderContent>
                 <RowTemplate>
                     <MudTd DataLabel="Name"><span class="color-dot" style="background:@context.Color"></span>@context.Name</MudTd>
                     <MudTd DataLabel="Farbe">@context.Color</MudTd>
-                    <MudTd Style="text-align:right;white-space:nowrap">
+                    <MudTd Class="col-actions">
                         <MudIconButton Icon="@Icons.Material.Filled.Edit" OnClick="() => EditTrackAsync(context)" aria-label="Bearbeiten" />
                         <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" aria-label="Löschen"
                                        OnClick="() => DeleteTrackAsync(context)" />
@@ -81,7 +84,7 @@
         </MudTabPanel>
 
         <MudTabPanel Text="@($"Räume ({_rooms.Count})")" Icon="@Icons.Material.Filled.MeetingRoom">
-            <div class="d-flex mb-3">
+            <div class="d-flex mb-4">
                 <MudSpacer />
                 <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add" OnClick="() => EditRoomAsync(null)">Neuer Raum</MudButton>
             </div>
@@ -89,12 +92,12 @@
                 <HeaderContent>
                     <MudTh>Name</MudTh>
                     <MudTh>Kapazität</MudTh>
-                    <MudTh Style="text-align:right">Aktionen</MudTh>
+                    <MudTh Class="col-actions">Aktionen</MudTh>
                 </HeaderContent>
                 <RowTemplate>
                     <MudTd DataLabel="Name">@context.Name</MudTd>
                     <MudTd DataLabel="Kapazität">@context.Capacity</MudTd>
-                    <MudTd Style="text-align:right;white-space:nowrap">
+                    <MudTd Class="col-actions">
                         <MudIconButton Icon="@Icons.Material.Filled.Edit" OnClick="() => EditRoomAsync(context)" aria-label="Bearbeiten" />
                         <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" aria-label="Löschen"
                                        OnClick="() => DeleteRoomAsync(context)" />
