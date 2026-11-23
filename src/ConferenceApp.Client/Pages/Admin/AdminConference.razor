@@ -149,7 +149,7 @@
     private async Task EditSessionAsync(SessionDto? s)
     {
         var model = s is null
-            ? new SessionRequest { Day = _conference!.StartDate, RoomId = _rooms.FirstOrDefault()?.Id ?? 0 }
+            ? new SessionRequest { Day = DefaultSessionDay(), RoomId = DefaultSessionRoomId() }
             : new SessionRequest
             {
                 Title = s.Title, Abstract = s.Abstract, Day = s.Day, StartTime = s.StartTime, EndTime = s.EndTime,
@@ -163,10 +163,27 @@
             { x => x.Rooms, _rooms },
             { x => x.Tracks, _tracks },
             { x => x.Speakers, _speakers },
-            { x => x.OnSave, r => s is null ? Api.CreateSessionAsync(Id, r) : Api.UpdateSessionAsync(Id, s.Id, r) },
+            { x => x.Sessions, _sessions },
+            { x => x.SessionId, s?.Id },
+            { x => x.OnSave, async r =>
+                {
+                    if (s is null) await Api.CreateSessionAsync(Id, r); else await Api.UpdateSessionAsync(Id, s.Id, r);
+                    (_lastSessionDay, _lastSessionRoomId) = (r.Day, r.RoomId);
+                } },
         };
         await AfterSaveAsync(await Dialogs.ShowFormAsync(s is null ? "Neue Session" : "Session bearbeiten", parameters));
     }
+
+    // Vorbelegung neuer Sessions: zuletzt gespeicherter Tag/Raum (sofern noch gültig), sonst erster Tag/erster Raum.
+    // Die Uhrzeit schlägt der SessionDialog anhand der Raumbelegung vor.
+    private DateOnly? _lastSessionDay;
+    private int? _lastSessionRoomId;
+
+    private DateOnly DefaultSessionDay() =>
+        _lastSessionDay is { } d && d >= _conference!.StartDate && d <= _conference.EndDate ? d : _conference!.StartDate;
+
+    private int DefaultSessionRoomId() =>
+        _rooms.FirstOrDefault(r => r.Id == _lastSessionRoomId)?.Id ?? _rooms.FirstOrDefault()?.Id ?? 0;
 
     private async Task EditTrackAsync(TrackDto? t)
     {
