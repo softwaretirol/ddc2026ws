@@ -1,5 +1,6 @@
 ﻿@page "/"
 @inject ApiClient Api
+@inject TimeProvider Clock
 
 <PageTitle>Konferenzen</PageTitle>
 
@@ -38,35 +39,44 @@
     }
     else
     {
-        <MudGrid>
-            @foreach (var c in _conferences)
-            {
-                <MudItem xs="12" sm="6" lg="4">
-                    <MudCard Elevation="2" Class="h-100 d-flex flex-column">
-                        <MudCardHeader>
-                            <CardHeaderContent>
-                                <MudText Typo="Typo.h6">@c.Name</MudText>
-                                <MudText Typo="Typo.body2" Color="Color.Secondary">
-                                    @Format.DateRange(c.StartDate, c.EndDate)@(c.Location is null ? "" : $" · {c.Location}")
-                                </MudText>
-                            </CardHeaderContent>
-                        </MudCardHeader>
-                        <MudCardContent Class="flex-grow-1">
-                            <MudText Typo="Typo.body2">@c.Description</MudText>
-                        </MudCardContent>
-                        <MudCardActions>
-                            <MudButton Href="@($"/konferenzen/{c.Slug}")" Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.CalendarMonth">Agenda</MudButton>
-                        </MudCardActions>
-                    </MudCard>
-                </MudItem>
-            }
-        </MudGrid>
+        @if (_running.Count > 0)
+        {
+            <section class="conf-section" aria-labelledby="conf-running">
+                <MudText Typo="Typo.h2" id="conf-running" Class="conf-section-title">Läuft gerade</MudText>
+                @CardGrid(_running)
+            </section>
+        }
+
+        @if (_upcoming.Count > 0)
+        {
+            <section class="conf-section" aria-labelledby="conf-upcoming">
+                <MudText Typo="Typo.h2" id="conf-upcoming" Class="conf-section-title">Demnächst</MudText>
+                @CardGrid(_upcoming)
+            </section>
+        }
+
+        @if (_past.Count > 0)
+        {
+            <section class="conf-section" aria-label="Vergangene Konferenzen">
+                <MudExpansionPanels Elevation="0" Outlined="true">
+                    <MudExpansionPanel Text="@($"Vergangen ({_past.Count})")">
+                        @CardGrid(_past)
+                    </MudExpansionPanel>
+                </MudExpansionPanels>
+            </section>
+        }
     }
     </ChildContent>
 </PageState>
 
 @code {
+    private enum Status { Running, Upcoming, Past }
+
     private List<ConferenceDto>? _conferences;
+    private List<ConferenceDto> _running = [];
+    private List<ConferenceDto> _upcoming = [];
+    private List<ConferenceDto> _past = [];
+    private DateOnly _today;
     private string? _error;
 
     protected override Task OnInitializedAsync() => LoadAsync();
@@ -74,7 +84,105 @@
     private async Task LoadAsync()
     {
         _error = null;
-        try { _conferences = await Api.GetConferencesAsync(); }
+        try
+        {
+            _conferences = await Api.GetConferencesAsync();
+            _today = DateOnly.FromDateTime(Clock.GetLocalNow().DateTime);
+
+            _running = _conferences.Where(c => StatusOf(c) == Status.Running).OrderBy(c => c.EndDate).ThenBy(c => c.Name).ToList();
+            _upcoming = _conferences.Where(c => StatusOf(c) == Status.Upcoming).OrderBy(c => c.StartDate).ThenBy(c => c.Name).ToList();
+            _past = _conferences.Where(c => StatusOf(c) == Status.Past).OrderByDescending(c => c.EndDate).ThenBy(c => c.Name).ToList();
+        }
         catch (ApiException ex) { _error = ex.Message; }
     }
+
+    private Status StatusOf(ConferenceDto c) =>
+        c.EndDate < _today ? Status.Past : c.StartDate > _today ? Status.Upcoming : Status.Running;
+
+    private static string AgendaUrl(ConferenceDto c) => $"/konferenzen/{c.Slug}";
+
+    private static string Location(ConferenceDto c) => c.Location is null ? "" : $" · {c.Location}";
+
+    private string StatusText(ConferenceDto c) => StatusOf(c) switch
+    {
+        Status.Running => "Läuft gerade",
+        Status.Upcoming => "Demnächst",
+        _ => "Vergangen",
+    };
+
+    private Color StatusColor(ConferenceDto c) => StatusOf(c) switch
+    {
+        Status.Running => Color.Success,
+        Status.Upcoming => Color.Info,
+        _ => Color.Default,
+    };
+
+    /// <summary>Relative Zeitangabe neben dem Status-Chip, z. B. „in 12 Tagen“ oder „Tag 2 von 3“.</summary>
+    private string? RelativeText(ConferenceDto c)
+    {
+        switch (StatusOf(c))
+        {
+            case Status.Upcoming:
+                var days = c.StartDate.DayNumber - _today.DayNumber;
+                return days == 1 ? "morgen" : $"in {days} Tagen";
+            case Status.Running:
+                var total = DayCount(c);
+                return total == 1 ? "heute" : $"Tag {_today.DayNumber - c.StartDate.DayNumber + 1} von {total}";
+            default:
+                return null;
+        }
+    }
+
+    private static int DayCount(ConferenceDto c) => c.EndDate.DayNumber - c.StartDate.DayNumber + 1;
+
+    /// <summary>Kennzahlen wie „2 Tage · 10 Sessions“.</summary>
+    private static string Stats(ConferenceDto c)
+    {
+        var days = DayCount(c);
+        var text = days == 1 ? "1 Tag" : $"{days} Tage";
+        if (c.SessionCount is { } n)
+            text += n == 1 ? " · 1 Session" : $" · {n} Sessions";
+        return text;
+    }
+
+    private RenderFragment CardGrid(List<ConferenceDto> conferences) =>
+        @<MudGrid>
+            @foreach (var c in conferences)
+            {
+                <MudItem xs="12" sm="6" lg="4">
+                    <MudCard Elevation="2" Class="conf-card h-100 d-flex flex-column">
+                        <MudCardHeader>
+                            <CardHeaderContent>
+                                <div class="conf-card-status">
+                                    <MudChip T="string" Size="Size.Small" Color="@StatusColor(c)" Variant="Variant.Text">@StatusText(c)</MudChip>
+                                    @if (RelativeText(c) is { } rel)
+                                    {
+                                        <span class="conf-card-relative">@rel</span>
+                                    }
+                                </div>
+                                <MudText Typo="Typo.h6" HtmlTag="h3">
+                                    @* Stretched Link: echter Anker, macht per ::after die ganze Karte klickbar (Mittelklick/Tastatur funktionieren). *@
+                                    <a href="@AgendaUrl(c)" class="conf-card-link">@c.Name</a>
+                                </MudText>
+                                <MudText Typo="Typo.body2" Color="Color.Secondary">
+                                    @Format.DateRange(c.StartDate, c.EndDate)@Location(c)
+                                </MudText>
+                            </CardHeaderContent>
+                        </MudCardHeader>
+                        <MudCardContent Class="flex-grow-1">
+                            @if (!string.IsNullOrWhiteSpace(c.Description))
+                            {
+                                <MudText Typo="Typo.body2" Class="conf-card-desc">@c.Description</MudText>
+                            }
+                        </MudCardContent>
+                        <MudCardActions Class="conf-card-footer">
+                            <MudText Typo="Typo.body2" Color="Color.Secondary">@Stats(c)</MudText>
+                            <span class="conf-card-cta" aria-hidden="true">
+                                Agenda <MudIcon Icon="@Icons.Material.Filled.ArrowForward" Size="Size.Small" />
+                            </span>
+                        </MudCardActions>
+                    </MudCard>
+                </MudItem>
+            }
+        </MudGrid>;
 }
