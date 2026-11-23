@@ -1,5 +1,7 @@
 @* Agenda-Raster: Räume als Spalten, Uhrzeit als Zeilen (5-Minuten-Raster).
    Pausen ab 30 Minuten (siehe AgendaTimeline) werden auf eine beschriftete Zeile gestaucht. *@
+@inject IDialogService DialogService
+@inject IJSRuntime JS
 
 @if (Sessions.Count == 0)
 {
@@ -32,7 +34,8 @@ else
             @foreach (var s in Sessions)
             {
                 var col = Rooms.FindIndex(r => r.Id == s.RoomId) + 2;
-                <a class="agenda-session" href="@($"/konferenzen/{Slug}/sessions/{s.Id}")" aria-label="@SessionLabel(s)"
+                <a class="@CardClass(s)" href="@DetailHref(s)" aria-label="@SessionLabel(s)" aria-haspopup="dialog"
+                   @onclick="e => OpenQuickView(e, s)" @onclick:preventDefault="true"
                    style="grid-column:@col;grid-row:@(Row(s.StartTime)) / @(Row(s.EndTime));border-left-color:@(s.TrackColor ?? "var(--mud-palette-gray-default)")">
                     <span class="agenda-time">@Format.Range(s.StartTime, s.EndTime)</span>
                     <span class="agenda-title">@s.Title</span>
@@ -44,6 +47,10 @@ else
                     {
                         <span class="agenda-track"><span class="color-dot" style="background:@s.TrackColor" aria-hidden="true"></span>@s.TrackName</span>
                     }
+                    @if (ShowAbstract(s))
+                    {
+                        <span class="agenda-abstract">@s.Abstract</span>
+                    }
                 </a>
             }
         </div>
@@ -52,7 +59,9 @@ else
 
 @code {
     private const int Slot = 5;        // Minuten pro Rasterzeile
-    private const int RowHeight = 11;  // Pixel pro Rasterzeile
+    private const int RowHeight = 14;  // Pixel pro Rasterzeile (15 Minuten = 42 px)
+    private const int CompactMaxMinutes = 20;  // bis hierhin zeigt die Karte nur den Titel
+    private const int AbstractMinMinutes = 60; // ab hier ist Platz für einen Abstract-Zweizeiler
 
     [Parameter, EditorRequired] public List<SessionDto> Sessions { get; set; } = [];
     [Parameter, EditorRequired] public List<RoomDto> Rooms { get; set; } = [];
@@ -87,10 +96,53 @@ else
     private static int SegmentRows(TimelineSegment seg) =>
         seg.IsGap ? 1 : Math.Max(1, (int)Math.Ceiling(seg.Duration.TotalMinutes / Slot));
 
-    // Vorlesetext der Karte: Titel, Zeit, Raum (+ Speaker, die sonst durch das aria-label verdeckt würden).
+    // Vorlesetext der Karte mit vollen Angaben (Titel, Zeit, Raum, Speaker, Track), weil Titel und Speaker
+    // auf der Karte gekürzt sein können und das aria-label den sichtbaren Inhalt überdeckt.
     private static string SessionLabel(SessionDto s) =>
         $"{s.Title}, {Format.Range(s.StartTime, s.EndTime)}, Raum {s.RoomName}" +
-        (s.Speakers.Count > 0 ? $", mit {string.Join(", ", s.Speakers.Select(x => x.Name))}" : "");
+        (s.Speakers.Count > 0 ? $", mit {string.Join(", ", s.Speakers.Select(x => x.Name))}" : "") +
+        (s.TrackName is not null ? $", Track {s.TrackName}" : "");
+
+    private static double Minutes(SessionDto s) => (s.EndTime - s.StartTime).TotalMinutes;
+
+    private static string CardClass(SessionDto s) =>
+        Minutes(s) <= CompactMaxMinutes ? "agenda-session agenda-session--compact" : "agenda-session";
+
+    private static bool ShowAbstract(SessionDto s) =>
+        Minutes(s) >= AbstractMinMinutes && !string.IsNullOrWhiteSpace(s.Abstract);
+
+    private string DetailHref(SessionDto s) => $"/konferenzen/{Slug}/sessions/{s.Id}";
+
+    // Klick bzw. Enter öffnet die Quick-View. Strg/Cmd/Umschalt+Klick öffnet die Detailseite wie gewohnt
+    // in einem neuen Tab; Mittelklick und „Link in neuem Tab öffnen“ funktionieren ohnehin, da die Karte ein echter Link bleibt.
+    private async Task OpenQuickView(MouseEventArgs e, SessionDto s)
+    {
+        if (e.CtrlKey || e.MetaKey || e.ShiftKey)
+        {
+            // Synchron (WebAssembly = In-Process), damit der Aufruf noch als Nutzergeste gilt und kein Popup-Blocker greift.
+            try
+            {
+                if (JS is IJSInProcessRuntime js) js.InvokeVoid("open", DetailHref(s), "_blank", "noopener");
+            }
+            catch (JSException) { /* Neuer Tab nicht möglich – Karte bleibt einfach geschlossen. */ }
+            return;
+        }
+
+        var parameters = new DialogParameters<SessionQuickView>
+        {
+            { x => x.Session, s },
+            { x => x.Slug, Slug },
+        };
+        await DialogService.ShowAsync<SessionQuickView>(s.Title, parameters, QuickViewOptions);
+    }
+
+    private static readonly DialogOptions QuickViewOptions = new()
+    {
+        MaxWidth = MaxWidth.Small,
+        FullWidth = true,
+        CloseButton = true,
+        CloseOnNavigation = true,
+    };
 
     // Rasterzeile zu einem Zeitpunkt: Zeiten in einer Pause landen auf deren Zeile,
     // das Ende der Zeitachse auf der Zeile nach der letzten.
