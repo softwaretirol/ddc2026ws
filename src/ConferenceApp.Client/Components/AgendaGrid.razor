@@ -27,7 +27,7 @@ else
             @foreach (var s in Sessions)
             {
                 var col = Rooms.FindIndex(r => r.Id == s.RoomId) + 2;
-                <a class="agenda-session" href="@($"/konferenzen/{Slug}/sessions/{s.Id}")"
+                <a class="@SessionClass(s)" href="@($"/konferenzen/{Slug}/sessions/{s.Id}")"
                    style="grid-column:@col;grid-row:@(Row(s.StartTime)) / @(Row(s.EndTime));border-left-color:@(s.TrackColor ?? "#9E9E9E")">
                     <span class="agenda-time">@Format.Range(s.StartTime, s.EndTime)</span>
                     <span class="agenda-title">@s.Title</span>
@@ -41,6 +41,15 @@ else
                     }
                 </a>
             }
+
+            @if (Now is { } now && NowRow(now) is { } nowRow)
+            {
+                @* Jetzt-Linie: in die passende 5-Minuten-Zeile gesetzt und minutengenau nach unten versetzt *@
+                <div class="agenda-now" aria-hidden="true"
+                     style="grid-row:@nowRow;grid-column:1 / span @(Rooms.Count + 1);margin-top:@(NowOffset(now))px">
+                    <span class="agenda-now-label">@Format.Time(now)</span>
+                </div>
+            }
         </div>
     </div>
 }
@@ -52,6 +61,9 @@ else
     [Parameter, EditorRequired] public List<SessionDto> Sessions { get; set; } = [];
     [Parameter, EditorRequired] public List<RoomDto> Rooms { get; set; } = [];
     [Parameter, EditorRequired] public string Slug { get; set; } = "";
+
+    /// <summary>Aktuelle Uhrzeit – nur gesetzt, wenn der angezeigte Tag heute ist (Jetzt-Linie, laufende Sessions).</summary>
+    [Parameter] public TimeOnly? Now { get; set; }
 
     private TimeOnly _start;
     private TimeOnly _end;
@@ -66,6 +78,14 @@ else
 
     // Zeile 1 ist der Raum-Header.
     private int Row(TimeOnly t) => (int)((t - _start).TotalMinutes / Slot) + 2;
+
+    private string SessionClass(SessionDto s) =>
+        Now is { } now && s.StartTime <= now && now < s.EndTime ? "agenda-session agenda-session--live" : "agenda-session";
+
+    // Zeile der Jetzt-Linie oder null, wenn "jetzt" außerhalb des angezeigten Zeitraums liegt.
+    private int? NowRow(TimeOnly now) => now >= _start && now < _end ? Row(now) : null;
+
+    private static int NowOffset(TimeOnly now) => (int)Math.Round(now.Minute % Slot / (double)Slot * RowHeight);
 
     private string GridStyle =>
         $"grid-template-columns:64px repeat({Rooms.Count}, minmax(190px, 1fr));" +

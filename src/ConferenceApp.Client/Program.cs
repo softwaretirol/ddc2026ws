@@ -12,6 +12,8 @@ builder.RootComponents.Add<HeadOutlet>("head::after");
 var apiBaseUrl = builder.Configuration["ApiBaseUrl"] ?? "http://localhost:5198/";
 builder.Services.AddScoped(_ => new HttpClient { BaseAddress = new Uri(apiBaseUrl) });
 builder.Services.AddScoped<ApiClient>();
+// Uhr für "Heute/Jetzt" in der Agenda – injizierbar, damit sich eine feste Zeit vorgeben lässt (Tests/Vorschau).
+builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddMudServices();
 
 await builder.Build().RunAsync();
