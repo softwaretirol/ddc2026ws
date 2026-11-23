@@ -1,7 +1,8 @@
 <FormDialog TModel="SessionRequest" Model="Model" OnSave="OnSave">
+    <BlockingValidator Errors="BlockingErrors" />
     <MudTextField @bind-Value="Model.Title" For="@(() => Model.Title)" Label="Titel" Required="true" AutoFocus="true" />
 
-    <MudSelect T="DateOnly" @bind-Value="Model.Day" Label="Tag" ToStringFunc="Format.Day">
+    <MudSelect T="DateOnly" Value="Model.Day" ValueChanged="DayChanged" Label="Tag" ToStringFunc="Format.Day">
         @foreach (var day in Format.Days(Conference.StartDate, Conference.EndDate))
         {
             <MudSelectItem Value="day">@Format.Day(day)</MudSelectItem>
@@ -9,20 +10,70 @@
     </MudSelect>
     <ValidationMessage For="@(() => Model.Day)" class="mud-error-text mud-typography-caption" />
 
-    <MudStack Row="true" Spacing="3">
-        <MudTimePicker @bind-Time="Start" Label="Beginn" AmPm="false" Required="true" />
-        <MudTimePicker @bind-Time="End" Label="Ende" AmPm="false" Required="true" />
-    </MudStack>
-    <ValidationMessage For="@(() => Model.StartTime)" class="mud-error-text mud-typography-caption" />
-    <ValidationMessage For="@(() => Model.EndTime)" class="mud-error-text mud-typography-caption" />
-
-    <MudSelect T="int" @bind-Value="Model.RoomId" For="@(() => Model.RoomId)" Label="Raum" Required="true"
+    <MudSelect T="int" Value="Model.RoomId" ValueChanged="RoomChanged" For="@(() => Model.RoomId)" Label="Raum" Required="true"
+               Error="_roomConflicts.Count > 0" ErrorText="@RoomConflictText"
                ToStringFunc="@(id => Rooms.FirstOrDefault(r => r.Id == id)?.Name ?? "")">
         @foreach (var r in Rooms)
         {
             <MudSelectItem Value="r.Id">@r.Name</MudSelectItem>
         }
     </MudSelect>
+
+    <div>
+        <MudStack Row="true" Spacing="3" AlignItems="AlignItems.Start">
+            <MudTextField T="string" Value="_startText" ValueChanged="StartTextChanged" Label="Beginn" Placeholder="HH:mm"
+                          HelperText="z. B. 930 oder 9:30" Required="true" InputMode="InputMode.numeric"
+                          Error="_startInvalid" ErrorText="Uhrzeit im Format HH:mm" />
+            <MudTextField T="string" Value="_endText" ValueChanged="EndTextChanged" Label="Ende" Placeholder="HH:mm"
+                          Required="true" InputMode="InputMode.numeric"
+                          Error="_endInvalid" ErrorText="Uhrzeit im Format HH:mm" />
+        </MudStack>
+        <div class="d-flex flex-wrap align-center gap-1 mt-1">
+            <MudText Typo="Typo.caption" Class="mr-1">Dauer:</MudText>
+            @foreach (var minutes in DurationOptions)
+            {
+                var m = minutes;
+                <MudChip T="int" Size="Size.Small" Color="Color.Primary" Class="ma-0"
+                         Variant="@(DurationMinutes == m ? Variant.Filled : Variant.Outlined)"
+                         OnClick="() => SetDuration(m)">@m min</MudChip>
+            }
+        </div>
+        <ValidationMessage For="@(() => Model.StartTime)" class="mud-error-text mud-typography-caption" />
+        <ValidationMessage For="@(() => Model.EndTime)" class="mud-error-text mud-typography-caption" />
+    </div>
+
+    @* Mini-Zeitleiste: belegte Zeiten im gewählten Raum an diesem Tag, die bearbeitete Session hervorgehoben. *@
+    @if (Model.RoomId > 0)
+    {
+        <div>
+            <MudText Typo="Typo.caption" Color="Color.Secondary">Belegung @RoomName · @Format.Day(Model.Day)</MudText>
+            <div style="position:relative;height:28px;border-radius:4px;background:var(--mud-palette-background-gray);overflow:hidden">
+                @foreach (var s in _roomDay)
+                {
+                    <div title="@BlockTitle(s)" style="@BlockStyle(s.StartTime, s.EndTime, OtherColor, false)"></div>
+                }
+                @if (TimesValid)
+                {
+                    <div title="@CurrentTitle" style="@BlockStyle(Model.StartTime, Model.EndTime, CurrentColor, true)"></div>
+                }
+            </div>
+            <div class="d-flex justify-space-between">
+                @for (var h = _timelineFrom; h <= _timelineTo; h += 2)
+                {
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">@HourLabel(h)</MudText>
+                }
+            </div>
+            @if (_roomDay.Count == 0)
+            {
+                <MudText Typo="Typo.caption" Color="Color.Secondary">Der Raum ist an diesem Tag noch frei.</MudText>
+            }
+            @if (_roomConflicts.Count > 0 && _nextFree is { } free)
+            {
+                <MudButton Size="Size.Small" Variant="Variant.Text" Color="Color.Primary" StartIcon="@Icons.Material.Filled.EventAvailable"
+                           OnClick="ApplyNextFree">Nächste freie Zeit übernehmen: @Format.Range(free.Start, free.End)</MudButton>
+            }
+        </div>
+    }
 
     <MudSelect T="int?" @bind-Value="Model.TrackId" Label="Track" Clearable="true"
                ToStringFunc="@(id => Tracks.FirstOrDefault(t => t.Id == id)?.Name ?? "Kein Track")">
@@ -35,7 +86,7 @@
     <ValidationMessage For="@(() => Model.TrackId)" class="mud-error-text mud-typography-caption" />
 
     <MudSelect T="int" Label="Speaker" MultiSelection="true"
-               SelectedValues="Model.SpeakerIds" SelectedValuesChanged="@(v => Model.SpeakerIds = v.ToList())"
+               SelectedValues="Model.SpeakerIds" SelectedValuesChanged="SpeakersChanged"
                ToStringFunc="@(id => Speakers.FirstOrDefault(s => s.Id == id)?.Name ?? "")">
         @foreach (var s in Speakers)
         {
@@ -43,6 +94,19 @@
         }
     </MudSelect>
     <ValidationMessage For="@(() => Model.SpeakerIds)" class="mud-error-text mud-typography-caption" />
+
+    @if (_speakerConflicts.Count > 0)
+    {
+        <MudAlert Severity="Severity.Warning" Dense="true">
+            <div>Speaker parallel eingeplant (Speichern bleibt möglich):</div>
+            <ul class="pl-4" style="list-style:disc">
+                @foreach (var (speaker, session) in _speakerConflicts)
+                {
+                    <li>@speaker.Name – „@session.Title“ (@session.RoomName, @Format.Range(session.StartTime, session.EndTime))</li>
+                }
+            </ul>
+        </MudAlert>
+    }
 
     <MudTextField @bind-Value="Model.Abstract" For="@(() => Model.Abstract)" Label="Abstract" Lines="5" />
 </FormDialog>
@@ -55,15 +119,161 @@
     [Parameter] public List<TrackDto> Tracks { get; set; } = [];
     [Parameter] public List<SpeakerDto> Speakers { get; set; } = [];
 
-    private TimeSpan? Start
+    /// <summary>Alle Sessions der Konferenz (bereits geladen) – Grundlage für die Live-Konfliktprüfung.</summary>
+    [Parameter] public List<SessionDto> Sessions { get; set; } = [];
+
+    /// <summary>Id der bearbeiteten Session; null bei einer neuen Session.</summary>
+    [Parameter] public int? SessionId { get; set; }
+
+    private static readonly int[] DurationOptions = [30, 45, 60];
+
+    private string _startText = "";
+    private string _endText = "";
+    private bool _startInvalid, _endInvalid;
+    private bool _timeTouched;
+
+    private List<SessionDto> _roomConflicts = [];
+    private List<(SpeakerSummaryDto Speaker, SessionDto Session)> _speakerConflicts = [];
+    private List<SessionDto> _roomDay = [];
+    private (TimeOnly Start, TimeOnly End)? _nextFree;
+    private int _timelineFrom = 8, _timelineTo = 18;
+
+    private bool IsNew => SessionId is null;
+    private bool TimesValid => !_startInvalid && !_endInvalid && Model.EndTime > Model.StartTime;
+    private int DurationMinutes => Model.EndTime > Model.StartTime ? (int)(Model.EndTime - Model.StartTime).TotalMinutes : 0;
+    private const string OtherColor = "var(--mud-palette-secondary)";
+    private string RoomName => Rooms.FirstOrDefault(r => r.Id == Model.RoomId)?.Name ?? "";
+    private string CurrentTitle => "Diese Session: " + Format.Range(Model.StartTime, Model.EndTime);
+    private string CurrentColor => _roomConflicts.Count > 0 ? "var(--mud-palette-error)" : "var(--mud-palette-primary)";
+
+    private string? RoomConflictText => _roomConflicts.Count == 0 ? null
+        : "Raum belegt: " + string.Join(", ", _roomConflicts.Select(s => $"„{s.Title}“ ({Format.Range(s.StartTime, s.EndTime)})"));
+
+    protected override void OnInitialized()
     {
-        get => Model.StartTime.ToTimeSpan();
-        set { if (value is { } v) Model.StartTime = TimeOnly.FromTimeSpan(v); }
+        if (IsNew) ApplySuggestion();
+        SyncTimeTexts();
+        Recalculate();
     }
 
-    private TimeSpan? End
+    private IEnumerable<string> BlockingErrors()
     {
-        get => Model.EndTime.ToTimeSpan();
-        set { if (value is { } v) Model.EndTime = TimeOnly.FromTimeSpan(v); }
+        if (_startInvalid || _endInvalid) yield return "Bitte Beginn und Ende im Format HH:mm angeben.";
+        if (RoomConflictText is { } text) yield return text;
+    }
+
+    private void DayChanged(DateOnly day)
+    {
+        Model.Day = day;
+        if (IsNew && !_timeTouched) { ApplySuggestion(); SyncTimeTexts(); }
+        Recalculate();
+    }
+
+    private void RoomChanged(int roomId)
+    {
+        Model.RoomId = roomId;
+        if (IsNew && !_timeTouched) { ApplySuggestion(); SyncTimeTexts(); }
+        Recalculate();
+    }
+
+    private void SpeakersChanged(IEnumerable<int> ids)
+    {
+        Model.SpeakerIds = ids.ToList();
+        Recalculate();
+    }
+
+    /// <summary>Beginn geändert: die Dauer bleibt erhalten, das Ende wandert mit.</summary>
+    private void StartTextChanged(string text)
+    {
+        _startText = text;
+        _startInvalid = !ScheduleConflicts.TryParseTime(text, out var start);
+        if (!_startInvalid)
+        {
+            var duration = DurationMinutes > 0 ? DurationMinutes : ScheduleConflicts.DefaultDurationMinutes;
+            Model.StartTime = start;
+            if (!_endInvalid) Model.EndTime = ScheduleConflicts.AddClamped(start, duration);
+            _timeTouched = true;
+            SyncTimeTexts();
+        }
+        Recalculate();
+    }
+
+    private void EndTextChanged(string text)
+    {
+        _endText = text;
+        _endInvalid = !ScheduleConflicts.TryParseTime(text, out var end);
+        if (!_endInvalid)
+        {
+            Model.EndTime = end;
+            _timeTouched = true;
+            SyncTimeTexts();
+        }
+        Recalculate();
+    }
+
+    private void SetDuration(int minutes)
+    {
+        if (_startInvalid) return;
+        Model.EndTime = ScheduleConflicts.AddClamped(Model.StartTime, minutes);
+        _endInvalid = false;
+        _timeTouched = true;
+        SyncTimeTexts();
+        Recalculate();
+    }
+
+    private void ApplyNextFree()
+    {
+        if (_nextFree is not { } free) return;
+        (Model.StartTime, Model.EndTime) = free;
+        _timeTouched = true;
+        SyncTimeTexts();
+        Recalculate();
+    }
+
+    private void ApplySuggestion()
+    {
+        if (Model.RoomId <= 0) return;
+        (Model.StartTime, Model.EndTime) = ScheduleConflicts.SuggestSlot(Sessions, Model.Day, Model.RoomId);
+    }
+
+    private void SyncTimeTexts()
+    {
+        if (!_startInvalid) _startText = Format.Time(Model.StartTime);
+        if (!_endInvalid) _endText = Format.Time(Model.EndTime);
+    }
+
+    private void Recalculate()
+    {
+        var timesValid = TimesValid;
+        _roomConflicts = timesValid ? ScheduleConflicts.RoomConflicts(Sessions, Model, SessionId) : [];
+        _speakerConflicts = timesValid ? ScheduleConflicts.SpeakerConflicts(Sessions, Model, SessionId) : [];
+        _roomDay = ScheduleConflicts.RoomDay(Sessions, Model.Day, Model.RoomId, SessionId);
+        _nextFree = _roomConflicts.Count > 0
+            ? ScheduleConflicts.NextFreeSlot(Sessions, Model.Day, Model.RoomId, SessionId, Model.StartTime, DurationMinutes)
+            : null;
+
+        // Zeitleiste: mindestens 08–18 Uhr, bei Bedarf erweitert, auf gerade Stunden gerundet (Beschriftung alle 2 h).
+        var times = _roomDay.SelectMany(s => new[] { s.StartTime, s.EndTime }).ToList();
+        if (timesValid) times.AddRange([Model.StartTime, Model.EndTime]);
+        var from = times.Count > 0 ? Math.Min(8, times.Min().Hour) : 8;
+        var to = times.Count > 0 ? Math.Max(18, times.Max(t => t.Minute > 0 ? t.Hour + 1 : t.Hour)) : 18;
+        _timelineFrom = from - from % 2;
+        _timelineTo = Math.Min(24, to + to % 2);
+    }
+
+    private static string BlockTitle(SessionDto s) => $"{Format.Range(s.StartTime, s.EndTime)} {s.Title}";
+    private static string HourLabel(int hour) => $"{hour:00}:00";
+
+    private string BlockStyle(TimeOnly start, TimeOnly end, string color, bool current)
+    {
+        var total = (_timelineTo - _timelineFrom) * 60.0;
+        double Offset(TimeOnly t) => Math.Clamp((t.ToTimeSpan().TotalMinutes - _timelineFrom * 60) / total * 100, 0, 100);
+        var left = Offset(start);
+        var width = Math.Max(Offset(end) - left, 0.5);
+        var fill = current
+            ? $"top:2px;bottom:2px;border:2px solid {color};background:color-mix(in srgb, {color} 25%, transparent);"
+            : $"top:6px;bottom:6px;background:{color};opacity:.7;";
+        return string.Create(System.Globalization.CultureInfo.InvariantCulture,
+            $"position:absolute;left:{left:0.##}%;width:{width:0.##}%;border-radius:3px;box-sizing:border-box;{fill}");
     }
 }

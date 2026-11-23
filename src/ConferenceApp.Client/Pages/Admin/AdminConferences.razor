@@ -6,34 +6,38 @@
 
 <PageTitle>Admin – Konferenzen</PageTitle>
 
-<div class="d-flex align-center mb-4">
-    <MudText Typo="Typo.h4">Konferenzen verwalten</MudText>
-    <MudSpacer />
-    <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add" OnClick="() => EditAsync(null)">Neue Konferenz</MudButton>
-</div>
+<PageHeader Title="Konferenzen verwalten" Dense="true">
+    <Actions>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add" OnClick="() => EditAsync(null)">Neue Konferenz</MudButton>
+    </Actions>
+</PageHeader>
 
-<PageState Loading="_items is null" Error="@_error">
+<PageState Loading="_items is null" Error="@_error" OnRetry="LoadAsync">
     <MudTable Items="_items" Hover="true" Elevation="1" Breakpoint="Breakpoint.Sm">
         <HeaderContent>
             <MudTh>Name</MudTh>
             <MudTh>Slug</MudTh>
             <MudTh>Zeitraum</MudTh>
             <MudTh>Ort</MudTh>
-            <MudTh Style="text-align:right">Aktionen</MudTh>
+            <MudTh Class="col-actions">Aktionen</MudTh>
         </HeaderContent>
         <RowTemplate>
             <MudTd DataLabel="Name"><MudLink Href="@($"/admin/konferenzen/{context.Id}")">@context.Name</MudLink></MudTd>
             <MudTd DataLabel="Slug">@context.Slug</MudTd>
             <MudTd DataLabel="Zeitraum">@Format.DateRange(context.StartDate, context.EndDate)</MudTd>
             <MudTd DataLabel="Ort">@context.Location</MudTd>
-            <MudTd Style="text-align:right;white-space:nowrap">
+            <MudTd Class="col-actions">
                 <MudTooltip Text="Agenda verwalten"><MudIconButton Icon="@Icons.Material.Filled.ViewTimeline" Href="@($"/admin/konferenzen/{context.Id}")" /></MudTooltip>
                 <MudTooltip Text="Öffentliche Agenda"><MudIconButton Icon="@Icons.Material.Filled.OpenInNew" Href="@($"/konferenzen/{context.Slug}")" /></MudTooltip>
                 <MudTooltip Text="Bearbeiten"><MudIconButton Icon="@Icons.Material.Filled.Edit" OnClick="() => EditAsync(context)" /></MudTooltip>
                 <MudTooltip Text="Löschen"><MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" OnClick="() => DeleteAsync(context)" /></MudTooltip>
             </MudTd>
         </RowTemplate>
-        <NoRecordsContent><MudText>Noch keine Konferenzen.</MudText></NoRecordsContent>
+        <NoRecordsContent>
+            <EmptyState Icon="@Icons.Material.Outlined.EventBusy" Title="Noch keine Konferenzen" Text="Lege die erste Konferenz an, um Tracks, Räume und Sessions zu planen.">
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add" OnClick="() => EditAsync(null)">Neue Konferenz</MudButton>
+            </EmptyState>
+        </NoRecordsContent>
     </MudTable>
 </PageState>
 
@@ -45,6 +49,7 @@
 
     private async Task LoadAsync()
     {
+        _error = null;
         try { _items = await Api.GetConferencesAsync(); }
         catch (ApiException ex) { _error = ex.Message; }
     }
