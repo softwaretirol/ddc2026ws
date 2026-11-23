@@ -424,3 +424,7 @@ FodyWeavers.xsd
 
 # Official VS Code C# Dev Kit Extension exclusion
 #*.lscache
+
+# Claude Code: lokale Einstellungen und Agenten-Worktrees
+.claude/settings.local.json
+.claude/worktrees/
