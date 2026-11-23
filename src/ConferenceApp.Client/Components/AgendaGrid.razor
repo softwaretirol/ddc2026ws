@@ -13,7 +13,7 @@ else
             @for (var i = 0; i < Rooms.Count; i++)
             {
                 <div class="agenda-room" style="grid-column:@(i + 2);grid-row:1">
-                    <strong>@Rooms[i].Name</strong>
+                    <h2 class="agenda-room-name">@Rooms[i].Name</h2>
                     @if (Rooms[i].Capacity is { } cap) { <span class="agenda-cap">@cap Plätze</span> }
                 </div>
             }
@@ -32,8 +32,8 @@ else
             @foreach (var s in Sessions)
             {
                 var col = Rooms.FindIndex(r => r.Id == s.RoomId) + 2;
-                <a class="agenda-session" href="@($"/konferenzen/{Slug}/sessions/{s.Id}")"
-                   style="grid-column:@col;grid-row:@(Row(s.StartTime)) / @(Row(s.EndTime));border-left-color:@(s.TrackColor ?? "#9E9E9E")">
+                <a class="agenda-session" href="@($"/konferenzen/{Slug}/sessions/{s.Id}")" aria-label="@SessionLabel(s)"
+                   style="grid-column:@col;grid-row:@(Row(s.StartTime)) / @(Row(s.EndTime));border-left-color:@(s.TrackColor ?? "var(--mud-palette-gray-default)")">
                     <span class="agenda-time">@Format.Range(s.StartTime, s.EndTime)</span>
                     <span class="agenda-title">@s.Title</span>
                     @if (s.Speakers.Count > 0)
@@ -42,7 +42,7 @@ else
                     }
                     @if (s.TrackName is not null)
                     {
-                        <span class="agenda-track" style="color:@s.TrackColor">@s.TrackName</span>
+                        <span class="agenda-track"><span class="color-dot" style="background:@s.TrackColor" aria-hidden="true"></span>@s.TrackName</span>
                     }
                 </a>
             }
@@ -86,6 +86,11 @@ else
     // Programm-Segmente maßstabsgetreu in 5-Minuten-Zeilen, Pausen als genau eine Zeile.
     private static int SegmentRows(TimelineSegment seg) =>
         seg.IsGap ? 1 : Math.Max(1, (int)Math.Ceiling(seg.Duration.TotalMinutes / Slot));
+
+    // Vorlesetext der Karte: Titel, Zeit, Raum (+ Speaker, die sonst durch das aria-label verdeckt würden).
+    private static string SessionLabel(SessionDto s) =>
+        $"{s.Title}, {Format.Range(s.StartTime, s.EndTime)}, Raum {s.RoomName}" +
+        (s.Speakers.Count > 0 ? $", mit {string.Join(", ", s.Speakers.Select(x => x.Name))}" : "");
 
     // Rasterzeile zu einem Zeitpunkt: Zeiten in einer Pause landen auf deren Zeile,
     // das Ende der Zeitachse auf der Zeile nach der letzten.
