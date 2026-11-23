@@ -12,28 +12,28 @@ else
     <div class="agenda-scroll">
         <div class="agenda-grid" style="@GridStyle">
             <div class="agenda-corner"></div>
-            @for (var i = 0; i < Rooms.Count; i++)
+            @for (var i = 0; i < _rooms.Count; i++)
             {
                 <div class="agenda-room" style="grid-column:@(i + 2);grid-row:1">
-                    <h2 class="agenda-room-name">@Rooms[i].Name</h2>
-                    @if (Rooms[i].Capacity is { } cap) { <span class="agenda-cap">@cap Plätze</span> }
+                    <h2 class="agenda-room-name">@_rooms[i].Name</h2>
+                    @if (_rooms[i].Capacity is { } cap) { <span class="agenda-cap">@cap Plätze</span> }
                 </div>
             }
 
             @foreach (var t in HourMarks())
             {
                 <div class="agenda-hour" style="grid-row:@(Row(t)) / span @(HourSpan(t));grid-column:1">@Format.Time(t)</div>
-                <div class="agenda-line" style="grid-row:@(Row(t));grid-column:2 / span @Rooms.Count"></div>
+                <div class="agenda-line" style="grid-row:@(Row(t));grid-column:2 / span @_rooms.Count"></div>
             }
 
             @foreach (var gap in _timeline.Gaps)
             {
-                <div class="agenda-gap" style="grid-row:@(Row(gap.Start));grid-column:2 / span @Rooms.Count">@gap.Label</div>
+                <div class="agenda-gap" style="grid-row:@(Row(gap.Start));grid-column:2 / span @_rooms.Count">@gap.Label</div>
             }
 
             @foreach (var s in Sessions)
             {
-                var col = Rooms.FindIndex(r => r.Id == s.RoomId) + 2;
+                var col = _rooms.FindIndex(r => r.Id == s.RoomId) + 2;
                 <a class="@CardClass(s)" href="@DetailHref(s)" aria-label="@SessionLabel(s)" aria-haspopup="dialog"
                    @onclick="e => OpenQuickView(e, s)" @onclick:preventDefault="true"
                    style="grid-column:@col;grid-row:@(Row(s.StartTime)) / @(Row(s.EndTime));border-left-color:@(s.TrackColor ?? "var(--mud-palette-gray-default)")">
@@ -62,7 +62,7 @@ else
             {
                 @* Jetzt-Linie: in die passende 5-Minuten-Zeile gesetzt und minutengenau nach unten versetzt *@
                 <div class="agenda-now" aria-hidden="true"
-                     style="grid-row:@nowRow;grid-column:1 / span @(Rooms.Count + 1);margin-top:@(NowOffset(now))px">
+                     style="grid-row:@nowRow;grid-column:1 / span @(_rooms.Count + 1);margin-top:@(NowOffset(now))px">
                     <span class="agenda-now-label">@Format.Time(now)</span>
                 </div>
             }
@@ -95,8 +95,13 @@ else
     private int[] _firstRow = [];       // erste Rasterzeile je Segment
     private int _rowCount;              // Anzahl Rasterzeilen ohne Header
 
+    // Nur Räume mit Sessions an diesem Tag als Spalten zeigen – Konferenzen nutzen je Tag oft andere Säle
+    // (z. B. Workshop-Räume nur an den Workshop-Tagen). Reihenfolge wie in Rooms.
+    private List<RoomDto> _rooms = [];
+
     protected override void OnParametersSet()
     {
+        _rooms = Rooms.Where(r => Sessions.Any(s => s.RoomId == r.Id)).ToList();
         if (Sessions.Count == 0) return;
         _start = new TimeOnly(Sessions.Min(s => s.StartTime).Hour, 0);
         var last = Sessions.Max(s => s.EndTime);
@@ -211,7 +216,7 @@ else
         {
             var rows = string.Join(" ", _timeline.Segments.Select(seg =>
                 seg.IsGap ? $"{GapHeight}px" : $"repeat({SegmentRows(seg)}, {RowHeight}px)"));
-            return $"grid-template-columns:64px repeat({Rooms.Count}, minmax(190px, 1fr));" +
+            return $"--agenda-rooms:{_rooms.Count};grid-template-columns:64px repeat({_rooms.Count}, minmax(190px, 1fr));" +
                    $"grid-template-rows:48px {rows};";
         }
     }

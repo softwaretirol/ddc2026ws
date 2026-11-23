@@ -198,7 +198,10 @@ html, body {
     display: grid;
     column-gap: 8px;
     position: relative;
-    min-width: max-content;
+    /* Kein min-width: max-content – das würde lange Abstract-Texte als ungebrochene Zeile messen und
+       das Raster auf zehntausende Pixel verbreitern. Die Spalten haben über minmax(190px, 1fr) eine
+       Mindestbreite; ist der Platz zu knapp, scrollt .agenda-scroll horizontal. */
+    width: max(100%, calc(64px + var(--agenda-rooms, 1) * 198px));
 }
 
 /* Zeitspalte bleibt beim seitlichen Scrollen stehen; Hintergrund + Schatten decken
