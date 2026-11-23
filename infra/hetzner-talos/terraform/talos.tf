@@ -27,6 +27,15 @@ locals {
     }
   })
 
+  # Flannel-VXLAN über das private Netz statt über die öffentlichen IPs (die Hetzner-Firewall lässt dort
+  # nur 6443/50000 zu – ohne diesen Patch erreichen sich Pods auf verschiedenen Nodes nicht, u. a. kein DNS).
+  # 10.0.0.1 ist das Gateway des privaten Hetzner-Netzes; Flannel wird nur über die Control Plane ausgerollt.
+  flannel_patch = yamlencode({
+    apiVersion = "v1alpha1"
+    kind       = "KubeFlannelCNIConfig"
+    extraArgs  = ["--iface-can-reach=10.0.0.1"]
+  })
+
   # Talos-API-Zertifikat mit öffentlicher und privater IP; etcd kommuniziert über das private Netz.
   # Das kube-apiserver-Zertifikat enthält die Node-Adressen (inkl. öffentlicher IPv4) automatisch.
   control_plane_patch = yamlencode({
@@ -51,7 +60,7 @@ data "talos_machine_configuration" "control_plane" {
   machine_type     = "controlplane"
   machine_secrets  = talos_machine_secrets.this.machine_secrets
   talos_version    = var.talos_version
-  config_patches   = [local.common_patch, local.cloud_provider_patch, local.control_plane_patch]
+  config_patches   = [local.common_patch, local.cloud_provider_patch, local.flannel_patch, local.control_plane_patch]
 }
 
 data "talos_machine_configuration" "worker" {

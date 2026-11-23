@@ -34,8 +34,8 @@ spec:
                   to: websecure
                   scheme: https
                   permanent: true
+        # Service-Typ ist im Chart standardmäßig LoadBalancer (das Feld "type" lässt das Schema in v42 nicht zu).
         service:
-          type: LoadBalancer
           annotations:
             load-balancer.hetzner.cloud/name: conference-ingress
             load-balancer.hetzner.cloud/location: hel1
