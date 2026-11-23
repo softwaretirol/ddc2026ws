@@ -1,0 +1,32 @@
+@* Barrierefreier Breadcrumb: Vorgänger als Links, die aktuelle Seite als nicht fokussierbarer Text mit aria-current. *@
+@if (Items.Count > 0)
+{
+    <nav aria-label="Brotkrümelnavigation">
+        <ol class="mud-breadcrumbs mud-typography-body1 breadcrumbs @Class">
+            @for (var i = 0; i < Items.Count; i++)
+            {
+                var item = Items[i];
+                var isLast = i == Items.Count - 1;
+                <li class="mud-breadcrumb-item">
+                    @if (isLast || item.Href is null)
+                    {
+                        <span class="breadcrumbs-current" aria-current="@(isLast ? "page" : null)">@item.Text</span>
+                    }
+                    else
+                    {
+                        <MudLink Href="@item.Href">@item.Text</MudLink>
+                    }
+                </li>
+                @if (!isLast)
+                {
+                    <li class="mud-breadcrumb-separator" aria-hidden="true"><span>/</span></li>
+                }
+            }
+        </ol>
+    </nav>
+}
+
+@code {
+    [Parameter, EditorRequired] public IReadOnlyList<BreadcrumbItem> Items { get; set; } = [];
+    [Parameter] public string? Class { get; set; }
+}
