@@ -1,36 +1,191 @@
-html, body {
-    font-family: Roboto, Helvetica, Arial, sans-serif;
+/* ---------- Farbschema der Lade-Shell ----------
+   Vor dem WASM-Start gibt es noch keine --mud-palette-*-Variablen. Diese Shell-Farben spiegeln die
+   Paletten aus App.razor (MudTheme) und sind die einzigen festen Farben im CSS (neben der Admin-Kopfleiste).
+   Ohne data-theme gilt die Systemeinstellung; js/theme.js setzt data-theme aus der gespeicherten Wahl
+   und später aus dem tatsächlich angezeigten Modus. */
+:root {
+    color-scheme: light;
+    --app-shell-background: #ffffff;
+    --app-shell-text: #424242;
+    --app-shell-track: rgba(255, 255, 255, .25);
+    --app-shell-accent: #3949ab;
+    --app-shell-bar: #283593;
+    --app-shell-bar-text: #ffffff;
+    --app-shell-surface: #ffffff;
+    --app-shell-skeleton: #eeeeee;
+    --app-shell-skeleton-highlight: #f5f5f5;
+    --app-shell-elevation: 0 2px 1px -1px rgba(0, 0, 0, .2), 0 1px 1px 0 rgba(0, 0, 0, .14), 0 1px 3px 0 rgba(0, 0, 0, .12);
+    --app-shell-snackbar: #323232;
+    --app-shell-snackbar-text: #ffffff;
+    --app-shell-snackbar-action: #9fa8da;
+    --app-shell-hover: rgba(255, 255, 255, .08);
 }
 
-/* ---------- Agenda-Kopf & Toolbar ---------- */
-.agenda-header { margin-bottom: 12px; }
-.agenda-header-title { line-height: 1.25; }
+@media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+        color-scheme: dark;
+        --app-shell-background: #32333d;
+        --app-shell-text: rgba(255, 255, 255, .7);
+        --app-shell-track: rgba(255, 255, 255, .12);
+        --app-shell-accent: #9fa8da;
+        --app-shell-bar: #27272f;
+        --app-shell-bar-text: rgba(255, 255, 255, .7);
+        --app-shell-surface: #27272f;
+        --app-shell-skeleton: rgba(255, 255, 255, .08);
+        --app-shell-skeleton-highlight: rgba(255, 255, 255, .14);
+        --app-shell-snackbar: #e0e0e0;
+        --app-shell-snackbar-text: #212121;
+        --app-shell-snackbar-action: #3949ab;
+        --app-shell-hover: rgba(0, 0, 0, .08);
+    }
+}
 
-.agenda-header-meta {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 4px 16px;
-    margin-top: 2px;
+:root[data-theme="dark"] {
+    color-scheme: dark;
+    --app-shell-background: #32333d;
+    --app-shell-text: rgba(255, 255, 255, .7);
+    --app-shell-track: rgba(255, 255, 255, .12);
+    --app-shell-accent: #9fa8da;
+    --app-shell-bar: #27272f;
+    --app-shell-bar-text: rgba(255, 255, 255, .7);
+    --app-shell-surface: #27272f;
+    --app-shell-skeleton: rgba(255, 255, 255, .08);
+    --app-shell-skeleton-highlight: rgba(255, 255, 255, .14);
+    --app-shell-snackbar: #e0e0e0;
+    --app-shell-snackbar-text: #212121;
+    --app-shell-snackbar-action: #3949ab;
+    --app-shell-hover: rgba(0, 0, 0, .08);
+}
+
+html {
+    background-color: var(--mud-palette-background, var(--app-shell-background));
+    color: var(--mud-palette-text-primary, var(--app-shell-text));
+}
+
+/*
+ * Abstands-Skala: 8 / 16 / 24 px.
+ * In Razor die MudBlazor-Klassen mit Stufe 2 / 4 / 6 verwenden (pa-2 = 8 px, mb-4 = 16 px, pa-6 = 24 px),
+ * in CSS die Variablen unten. Keine Inline-Styles für Abstände – nur datengetriebene Werte
+ * (Track-Farben, Rasterpositionen) bleiben inline.
+ */
+:root {
+    --space-1: 8px;
+    --space-2: 16px;
+    --space-3: 24px;
+}
+
+/* ---------- Schrift ----------
+   Keine Google Fonts mehr: Roboto wird genutzt, wenn sie lokal installiert ist,
+   sonst die Systemschrift. html:root ist spezifischer als das :root des MudThemeProviders. */
+html:root {
+    --app-font: Roboto, system-ui, -apple-system, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+    --mud-typography-default-family: var(--app-font);
+    --mud-typography-h1-family: var(--app-font);
+    --mud-typography-h2-family: var(--app-font);
+    --mud-typography-h3-family: var(--app-font);
+    --mud-typography-h4-family: var(--app-font);
+    --mud-typography-h5-family: var(--app-font);
+    --mud-typography-h6-family: var(--app-font);
+    --mud-typography-subtitle1-family: var(--app-font);
+    --mud-typography-subtitle2-family: var(--app-font);
+    --mud-typography-body1-family: var(--app-font);
+    --mud-typography-body2-family: var(--app-font);
+    --mud-typography-button-family: var(--app-font);
+    --mud-typography-caption-family: var(--app-font);
+    --mud-typography-overline-family: var(--app-font);
+}
+
+html, body {
+    font-family: var(--app-font);
+}
+
+/* ---------- Tastatur & Semantik ---------- */
+/* Skip-Link: unsichtbar, bis er per Tab fokussiert wird. */
+.skip-link {
+    position: absolute;
+    top: 8px;
+    left: 8px;
+    z-index: 2100;
+    padding: 8px 16px;
+    background: var(--mud-palette-surface);
+    color: var(--mud-palette-primary);
+    border-radius: 4px;
+    box-shadow: var(--mud-elevation-4);
+    font-weight: 500;
+    transform: translateY(-200%);
+}
+
+.skip-link:focus { transform: none; }
+
+/* Fokusziel des Skip-Links bzw. nach Navigation – keinen Rahmen um den ganzen Inhalt zeichnen. */
+#inhalt:focus { outline: none; }
+
+.breadcrumbs-current { color: var(--mud-palette-text-secondary); }
+
+/* ---------- Layouts ---------- */
+/* Öffentlich: Footer am Seitenende, auch bei wenig Inhalt */
+.public-main { display: flex; flex-direction: column; min-height: 100vh; }
+.public-content { flex: 1 0 auto; }
+
+.public-footer {
+    padding: 12px 0;
+    border-top: 1px solid var(--mud-palette-lines-default);
     font-size: .875rem;
     color: var(--mud-palette-text-secondary);
 }
 
-.agenda-header-meta span { display: inline-flex; align-items: center; gap: 4px; }
-.agenda-header-desc { margin-top: 6px; max-width: 80ch; }
+/* Verwaltung: neutral-dunkle Kopfleiste statt Primärfarbe */
+.mud-appbar.admin-appbar { background-color: #37474F; }
 
+/* ---------- Seitenkopf (Components/PageHeader.razor) ---------- */
+.page-header { margin-bottom: var(--space-3); }
+
+.page-header .page-header-breadcrumbs { padding: 0; margin-bottom: var(--space-1); }
+
+.page-header-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-1) var(--space-2);
+}
+
+.page-header-text { flex: 1 1 auto; min-width: 0; }
+.page-header-title { overflow-wrap: anywhere; }
+.page-header-dense .page-header-title { font-size: 1.5rem; }
+
+.page-header-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px var(--space-2);
+    margin-top: 4px;
+    font-size: .875rem;
+    color: var(--mud-palette-text-secondary);
+}
+
+.page-header-meta > span { display: inline-flex; align-items: center; gap: 4px; }
+
+.page-header-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-1); }
+
+.page-header-desc { margin-top: var(--space-1); max-width: 80ch; }
+
+/* ---------- Agenda-Toolbar ---------- */
 .agenda-toolbar {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
     justify-content: space-between;
-    gap: 8px 16px;
-    padding: 6px 0;
-    margin-bottom: 12px;
+    gap: var(--space-1) var(--space-2);
+    padding: var(--space-1) 0;
+    margin-bottom: var(--space-2);
     border-bottom: 1px solid var(--mud-palette-lines-default);
 }
 
 .agenda-days, .agenda-tracks { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
 .agenda-tracks .mud-chip { margin: 0; }
+
+/* Tagesbuttons bleiben einzeilig; bei vielen Tagen horizontal scrollen statt umbrechen. */
+.agenda-days { flex-wrap: nowrap; max-width: 100%; overflow-x: auto; }
+.agenda-day { flex: 0 0 auto; white-space: nowrap; }
 
 /* ---------- Agenda-Raster ---------- */
 .agenda-scroll {
@@ -68,6 +223,13 @@ html, body {
     top: 0;
 }
 
+/* Raumname ist eine Überschrift (Spaltenkopf), sieht aber aus wie bisher fetter Fließtext. */
+.agenda-room-name {
+    margin: 0;
+    font-size: inherit;
+    font-weight: 700;
+}
+
 .agenda-cap {
     font-size: .75rem;
     color: var(--mud-palette-text-secondary);
@@ -88,6 +250,22 @@ html, body {
     z-index: 0;
 }
 
+/* Gestauchte Pause (≥ 30 Minuten ohne Session in allen Räumen), über alle Räume beschriftet. */
+.agenda-gap {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 3px 0;
+    font-size: .8rem;
+    color: var(--mud-palette-text-secondary);
+    background: repeating-linear-gradient(-45deg,
+        var(--mud-palette-background-gray) 0 6px,
+        transparent 6px 12px);
+    border: 1px dashed var(--mud-palette-lines-default);
+    border-radius: 6px;
+    z-index: 0;
+}
+
 .agenda-session {
     z-index: 1;
     display: flex;
@@ -98,16 +276,16 @@ html, body {
     overflow: hidden;
     background: var(--mud-palette-surface);
     border: 1px solid var(--mud-palette-lines-default);
-    border-left: 5px solid #9E9E9E;
+    border-left: 5px solid var(--mud-palette-gray-default);
     border-radius: 6px;
     color: inherit;
     text-decoration: none;
-    box-shadow: 0 1px 2px rgba(0, 0, 0, .06);
+    box-shadow: var(--mud-elevation-1);
     transition: box-shadow .15s, transform .15s;
 }
 
 .agenda-session:hover {
-    box-shadow: 0 4px 10px rgba(0, 0, 0, .15);
+    box-shadow: var(--mud-elevation-4);
     transform: translateY(-1px);
 }
 
@@ -115,6 +293,7 @@ html, body {
 .agenda-title { font-weight: 500; line-height: 1.25; }
 .agenda-speakers { font-size: .8rem; }
 .agenda-track { font-size: .72rem; font-weight: 500; text-transform: uppercase; letter-spacing: .03em; }
+.agenda-track .color-dot { width: 8px; height: 8px; margin-right: 4px; }
 
 /* ---------- Agenda-Liste (mobil) ---------- */
 .agenda-list { display: flex; flex-direction: column; gap: 12px; }
@@ -153,12 +332,12 @@ html, body {
     padding: 8px 10px;
     background: var(--mud-palette-surface);
     border: 1px solid var(--mud-palette-lines-default);
-    border-left: 5px solid #9E9E9E;
+    border-left: 5px solid var(--mud-palette-gray-default);
     border-radius: 6px;
     color: inherit;
     text-decoration: none;
     overflow-wrap: anywhere;
-    box-shadow: 0 1px 2px rgba(0, 0, 0, .06);
+    box-shadow: var(--mud-elevation-1);
 }
 
 .agenda-list-meta {
@@ -169,6 +348,9 @@ html, body {
 }
 
 .agenda-list-room { font-size: .8rem; font-weight: 500; }
+
+/* Pause in der Liste: gleiche Optik wie die gestauchte Pause im Raster (.agenda-gap). */
+.agenda-list-gap { margin: 0; padding: 8px; }
 
 /* ---------- Umschaltung Liste/Raster ---------- */
 .agenda-view-grid { display: none; }
@@ -190,56 +372,187 @@ html, body {
 
 .prewrap { white-space: pre-wrap; }
 
-/* ---------- Blazor-Standard: Ladeanzeige & Fehlerleiste ---------- */
-#blazor-error-ui {
-    background: lightyellow;
-    bottom: 0;
-    box-shadow: 0 -1px 2px rgba(0, 0, 0, 0.2);
-    display: none;
-    left: 0;
-    padding: 0.6rem 1.25rem 0.7rem 1.25rem;
+/* Farbiger Randstreifen; die Farbe kommt per --track-color aus den Daten. */
+.track-accent { border-left: 6px solid var(--track-color, var(--mud-palette-gray-default)); }
+
+/* Aktionsspalte in Admin-Tabellen */
+.col-actions { text-align: right; white-space: nowrap; }
+
+/* Nativer Farbwähler im Track-Dialog */
+.color-input {
+    width: 48px;
+    height: 40px;
+    border: none;
+    background: none;
+    cursor: pointer;
+}
+
+.visually-hidden {
+    position: absolute !important;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+/* ---------- Lade-, Leer- und Fehlerzustände ---------- */
+.state-panel {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    max-width: 560px;
+    margin: 32px auto;
+    padding: 24px 16px;
+}
+
+.state-panel-icon {
+    font-size: 56px !important;
+    width: 56px;
+    height: 56px;
+    margin-bottom: 12px;
+    color: var(--mud-palette-text-disabled);
+}
+
+/* ---------- Startbildschirm (statische App-Shell in index.html) ----------
+   Gleiche Maße wie MudAppBar/MudDrawer/MudContainer, damit beim Start nichts springt.
+   Farben kommen aus den --app-shell-*-Variablen (oben), damit die Shell dem Farbschema folgt. */
+.app-shell-bar {
     position: fixed;
-    width: 100%;
+    inset: 0 0 auto 0;
+    height: 64px;
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    padding: 0 24px 0 12px;
+    background: var(--app-shell-bar);
+    color: var(--app-shell-bar-text);
+    box-shadow: var(--app-shell-elevation);
+    z-index: 2;
+}
+
+.app-shell-menu {
+    width: 24px;
+    height: 24px;
+    margin-left: 12px;
+    background: linear-gradient(currentColor 0 0) 3px 6px / 18px 2px no-repeat,
+                linear-gradient(currentColor 0 0) 3px 11px / 18px 2px no-repeat,
+                linear-gradient(currentColor 0 0) 3px 16px / 18px 2px no-repeat;
+}
+
+.app-shell-title { font-size: 1.25rem; font-weight: 500; letter-spacing: .0075em; }
+
+.app-shell-progress {
+    position: absolute;
+    inset: auto 0 0 0;
+    height: 3px;
+    background: var(--app-shell-track);
+}
+
+.app-shell-progress-value {
+    height: 100%;
+    width: var(--blazor-load-percentage, 0%);
+    background: var(--app-shell-bar-text);
+    transition: width .1s ease-out;
+}
+
+.app-shell-drawer {
+    position: fixed;
+    inset: 64px auto 0 0;
+    width: 240px;
+    background: var(--app-shell-surface);
+    box-shadow: var(--app-shell-elevation);
+}
+
+.app-shell-main {
+    padding: calc(64px + 24px) 24px 24px calc(240px + 24px);
+}
+
+.app-shell-text {
+    margin: 0 0 16px;
+    color: var(--app-shell-text);
+}
+
+.app-shell-text::after { content: " " var(--blazor-load-percentage-text, ""); }
+
+.app-shell-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 24px;
+}
+
+.app-shell-block {
+    height: 180px;
+    border-radius: 4px;
+    background: linear-gradient(90deg, var(--app-shell-skeleton) 25%, var(--app-shell-skeleton-highlight) 50%, var(--app-shell-skeleton) 75%) 0 0 / 200% 100%;
+    animation: app-shell-wave 1.4s ease-in-out infinite;
+}
+
+.app-shell-block-title { height: 40px; width: 240px; max-width: 60%; margin-bottom: 24px; }
+
+@keyframes app-shell-wave { from { background-position: 100% 0; } to { background-position: -100% 0; } }
+
+@media (max-width: 959.98px) {
+    .app-shell-drawer { display: none; }
+    .app-shell-main { padding-left: 16px; padding-right: 16px; }
+}
+
+@media (max-width: 599.98px) {
+    .app-shell-bar { height: 56px; }
+    .app-shell-main { padding-top: calc(56px + 24px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .app-shell-block { animation: none; }
+}
+
+/* ---------- Fehlerleiste im App-Stil (Snackbar-Optik) ---------- */
+#blazor-error-ui {
+    display: none;
+    position: fixed;
+    left: 50%;
+    bottom: 24px;
+    transform: translateX(-50%);
+    width: max-content;
+    max-width: calc(100% - 32px);
+    padding: 8px 8px 8px 16px;
+    border-radius: 4px;
+    background: var(--app-shell-snackbar);
+    color: var(--app-shell-snackbar-text);
+    font-size: .875rem;
+    line-height: 1.43;
+    box-shadow: var(--mud-elevation-6, var(--app-shell-elevation));
     z-index: 2000;
 }
 
+#blazor-error-ui .error-ui-text { margin-right: 16px; }
+
+#blazor-error-ui .reload {
+    display: inline-block;
+    padding: 6px 8px;
+    border-radius: 4px;
+    color: var(--app-shell-snackbar-action);
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: .03em;
+    text-decoration: none;
+}
+
+#blazor-error-ui .reload:hover { background: var(--app-shell-hover); }
+
 #blazor-error-ui .dismiss {
+    margin-left: 4px;
+    padding: 6px 10px;
+    border: 0;
+    border-radius: 50%;
+    background: none;
+    color: inherit;
+    font: inherit;
     cursor: pointer;
-    position: absolute;
-    right: 0.75rem;
-    top: 0.5rem;
 }
 
-.loading-progress {
-    position: absolute;
-    display: block;
-    width: 8rem;
-    height: 8rem;
-    inset: 20vh 0 auto 0;
-    margin: 0 auto 0 auto;
-}
-
-.loading-progress circle {
-    fill: none;
-    stroke: #e0e0e0;
-    stroke-width: 0.6rem;
-    transform-origin: 50% 50%;
-    transform: rotate(-90deg);
-}
-
-.loading-progress circle:last-child {
-    stroke: #3949AB;
-    stroke-dasharray: calc(3.141 * var(--blazor-load-percentage, 0%) * 0.8), 500%;
-    transition: stroke-dasharray 0.05s ease-in-out;
-}
-
-.loading-progress-text {
-    position: absolute;
-    text-align: center;
-    font-weight: bold;
-    inset: calc(20vh + 3.25rem) 0 auto 0.2rem;
-}
-
-.loading-progress-text:after {
-    content: var(--blazor-load-percentage-text, "Laden");
-}
+#blazor-error-ui .dismiss:hover { background: var(--app-shell-hover); }

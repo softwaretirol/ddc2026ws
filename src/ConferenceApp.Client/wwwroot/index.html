@@ -8,25 +8,39 @@
     <base href="/" />
     <link rel="preload" id="webassembly" />
     <link rel="icon" type="image/png" href="icon-192.png" />
-    <link href="https://fonts.googleapis.com/css?family=Roboto:300,400,500,700&display=swap" rel="stylesheet" />
     <link href="_content/MudBlazor/MudBlazor.min.css" rel="stylesheet" />
     <link rel="stylesheet" href="css/app.css" />
+    <!-- Synchron im <head>: setzt die gespeicherte Farbschema-Wahl, bevor die Lade-Shell gezeichnet wird. -->
+    <script src="js/theme.js"></script>
     <script type="importmap"></script>
 </head>
 
 <body>
     <div id="app">
-        <svg class="loading-progress">
-            <circle r="40%" cx="50%" cy="50%" />
-            <circle r="40%" cx="50%" cy="50%" />
-        </svg>
-        <div class="loading-progress-text"></div>
+        <!-- Statische App-Shell: sieht aus wie das spätere Layout, bis Blazor geladen ist -->
+        <div class="app-shell" aria-busy="true">
+            <header class="app-shell-bar">
+                <span class="app-shell-menu" aria-hidden="true"></span>
+                <span class="app-shell-title">ConferenceApp</span>
+                <div class="app-shell-progress" aria-hidden="true"><div class="app-shell-progress-value"></div></div>
+            </header>
+            <aside class="app-shell-drawer" aria-hidden="true"></aside>
+            <main class="app-shell-main">
+                <p class="app-shell-text" role="status">Die Anwendung wird geladen …</p>
+                <div class="app-shell-block app-shell-block-title"></div>
+                <div class="app-shell-cards">
+                    <div class="app-shell-block"></div>
+                    <div class="app-shell-block"></div>
+                    <div class="app-shell-block"></div>
+                </div>
+            </main>
+        </div>
     </div>
 
-    <div id="blazor-error-ui">
-        Ein unerwarteter Fehler ist aufgetreten.
+    <div id="blazor-error-ui" role="alert">
+        <span class="error-ui-text">Ein unerwarteter Fehler ist aufgetreten.</span>
         <a href="." class="reload">Neu laden</a>
-        <span class="dismiss">&#x2715;</span>
+        <button type="button" class="dismiss" aria-label="Meldung schließen">&#x2715;</button>
     </div>
     <script src="_content/MudBlazor/MudBlazor.min.js"></script>
     <script src="_framework/blazor.webassembly#[.{fingerprint}].js"></script>
