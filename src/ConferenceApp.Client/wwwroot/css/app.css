@@ -105,7 +105,66 @@ html, body {
 .agenda-speakers { font-size: .8rem; }
 .agenda-track { font-size: .72rem; font-weight: 500; text-transform: uppercase; letter-spacing: .03em; }
 
+/* ---------- Speaker-Übersicht ---------- */
+.speaker-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px 16px;
+    margin-bottom: 8px;
+}
+
+.speaker-search { flex: 1 1 260px; max-width: 420px; }
+.speaker-conference { flex: 0 1 260px; }
+
+/* Ganze Karte klickbar: der Namens-Link deckt die Karte per ::after ab (Stretched-Link) */
+.speaker-card {
+    position: relative;
+    transition: box-shadow .15s, transform .15s;
+}
+
+.speaker-card:hover {
+    box-shadow: 0 4px 10px rgba(0, 0, 0, .15);
+    transform: translateY(-1px);
+}
+
+.speaker-card-link {
+    color: var(--mud-palette-primary);
+    text-decoration: none;
+}
+
+.speaker-card-link::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+}
+
+.speaker-card:hover .speaker-card-link { text-decoration: underline; }
+.speaker-card-link:focus-visible { outline: none; }
+.speaker-card:focus-within { outline: 2px solid var(--mud-palette-primary); outline-offset: 2px; }
+
+.line-clamp-2 {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
 /* ---------- Diverses ---------- */
+.sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
 .color-dot {
     display: inline-block;
     width: 14px;
