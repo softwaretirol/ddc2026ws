@@ -1,0 +1,64 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git diff*)",
+      "Bash(git -C * diff*)",
+      "Bash(git status*)",
+      "Bash(git -C * status*)",
+      "Bash(git show*)",
+      "Bash(git -C * show*)",
+      "PowerShell(git diff*)",
+      "PowerShell(git -C * diff*)",
+      "PowerShell(git status*)",
+      "PowerShell(git -C * status*)",
+      "PowerShell(git show*)",
+      "PowerShell(git -C * show*)"
+    ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "agent",
+            "if": "Bash(git commit*)",
+            "model": "claude-sonnet-5-5",
+            "timeout": 300,
+            "statusMessage": "Security-Review der Änderungen vor dem Commit …",
+            "prompt": "Du bist der Pre-Commit-Security-Review dieses Repos. Lies zuerst die Datei .claude/security-review.md im Repo-Root (relativ zu cwd bzw. dem Git-Root) und befolge sie genau. Hook-Eingabe (enthält den Commit-Befehl und cwd): $ARGUMENTS"
+          },
+          {
+            "type": "agent",
+            "if": "Bash(git -C * commit*)",
+            "model": "claude-sonnet-5-5",
+            "timeout": 300,
+            "statusMessage": "Security-Review der Änderungen vor dem Commit …",
+            "prompt": "Du bist der Pre-Commit-Security-Review dieses Repos. Lies zuerst die Datei .claude/security-review.md im Repo-Root (relativ zu cwd bzw. dem Git-Root) und befolge sie genau. Hook-Eingabe (enthält den Commit-Befehl und cwd): $ARGUMENTS"
+          }
+        ]
+      },
+      {
+        "matcher": "PowerShell",
+        "hooks": [
+          {
+            "type": "agent",
+            "if": "PowerShell(git commit*)",
+            "model": "claude-sonnet-5-5",
+            "timeout": 300,
+            "statusMessage": "Security-Review der Änderungen vor dem Commit …",
+            "prompt": "Du bist der Pre-Commit-Security-Review dieses Repos. Lies zuerst die Datei .claude/security-review.md im Repo-Root (relativ zu cwd bzw. dem Git-Root) und befolge sie genau. Hook-Eingabe (enthält den Commit-Befehl und cwd): $ARGUMENTS"
+          },
+          {
+            "type": "agent",
+            "if": "PowerShell(git -C * commit*)",
+            "model": "claude-sonnet-5-5",
+            "timeout": 300,
+            "statusMessage": "Security-Review der Änderungen vor dem Commit …",
+            "prompt": "Du bist der Pre-Commit-Security-Review dieses Repos. Lies zuerst die Datei .claude/security-review.md im Repo-Root (relativ zu cwd bzw. dem Git-Root) und befolge sie genau. Hook-Eingabe (enthält den Commit-Befehl und cwd): $ARGUMENTS"
+          }
+        ]
+      }
+    ]
+  }
+}
