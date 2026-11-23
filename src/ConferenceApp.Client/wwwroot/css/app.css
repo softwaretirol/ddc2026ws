@@ -2,6 +2,21 @@ html, body {
     font-family: Roboto, Helvetica, Arial, sans-serif;
 }
 
+/* ---------- Layouts ---------- */
+/* Öffentlich: Footer am Seitenende, auch bei wenig Inhalt */
+.public-main { display: flex; flex-direction: column; min-height: 100vh; }
+.public-content { flex: 1 0 auto; }
+
+.public-footer {
+    padding: 12px 0;
+    border-top: 1px solid var(--mud-palette-lines-default);
+    font-size: .875rem;
+    color: var(--mud-palette-text-secondary);
+}
+
+/* Verwaltung: neutral-dunkle Kopfleiste statt Primärfarbe */
+.mud-appbar.admin-appbar { background-color: #37474F; }
+
 /* ---------- Agenda-Kopf & Toolbar ---------- */
 .agenda-header { margin-bottom: 12px; }
 .agenda-header-title { line-height: 1.25; }
