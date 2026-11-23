@@ -15,6 +15,9 @@ public static class Format
     public static string DateRange(DateOnly start, DateOnly end) =>
         start == end ? Date(start) : $"{start.ToString("dd.MM.", De)}–{Date(end)}";
 
+    /// <summary>Anzahl mit passender Einzahl/Mehrzahl, z. B. „1 Session“, „4 Sessions“.</summary>
+    public static string Count(int n, string singular, string plural) => $"{n} {(n == 1 ? singular : plural)}";
+
     public static IEnumerable<DateOnly> Days(DateOnly start, DateOnly end)
     {
         for (var d = start; d <= end; d = d.AddDays(1)) yield return d;

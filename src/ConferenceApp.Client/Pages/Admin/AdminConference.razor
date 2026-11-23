@@ -96,8 +96,22 @@
                     <MudTd DataLabel="Kapazität">@context.Capacity</MudTd>
                     <MudTd Style="text-align:right;white-space:nowrap">
                         <MudIconButton Icon="@Icons.Material.Filled.Edit" OnClick="() => EditRoomAsync(context)" aria-label="Bearbeiten" />
-                        <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" aria-label="Löschen"
-                                       OnClick="() => DeleteRoomAsync(context)" />
+                        @{ var roomSessions = SessionCount(context); }
+                        @if (roomSessions > 0)
+                        {
+                            @* Deaktivierte Buttons zeigen keinen Tooltip – daher der span als Wrapper. *@
+                            <MudTooltip Text="@RoomInUseText(roomSessions)">
+                                <span>
+                                    <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" Disabled="true"
+                                                   aria-label="@($"Löschen nicht möglich: {RoomInUseText(roomSessions)}")" />
+                                </span>
+                            </MudTooltip>
+                        }
+                        else
+                        {
+                            <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" aria-label="Löschen"
+                                           OnClick="() => DeleteRoomAsync(context)" />
+                        }
                     </MudTd>
                 </RowTemplate>
                 <NoRecordsContent><MudText>Noch keine Räume.</MudText></NoRecordsContent>
@@ -188,8 +202,21 @@
     }
 
     private Task DeleteSessionAsync(SessionDto s) => DeleteAsync($"Session „{s.Title}“ löschen?", () => Api.DeleteSessionAsync(Id, s.Id));
-    private Task DeleteTrackAsync(TrackDto t) => DeleteAsync($"Track „{t.Name}“ löschen? Sessions bleiben ohne Track erhalten.", () => Api.DeleteTrackAsync(Id, t.Id));
+    private Task DeleteTrackAsync(TrackDto t)
+    {
+        var count = _sessions.Count(s => s.TrackId == t.Id);
+        var text = count == 0
+            ? $"Track „{t.Name}“ löschen? Ihm sind keine Sessions zugeordnet."
+            : $"Track „{t.Name}“ löschen? {Format.Count(count, "Session bleibt", "Sessions bleiben")} ohne Track erhalten.";
+        return DeleteAsync(text, () => Api.DeleteTrackAsync(Id, t.Id));
+    }
+
+    // Räume mit Sessions sind in der Tabelle gar nicht löschbar; die API-Regel (409) bleibt als Absicherung.
     private Task DeleteRoomAsync(RoomDto r) => DeleteAsync($"Raum „{r.Name}“ löschen?", () => Api.DeleteRoomAsync(Id, r.Id));
+
+    private int SessionCount(RoomDto r) => _sessions.Count(s => s.RoomId == r.Id);
+
+    private static string RoomInUseText(int sessions) => $"{Format.Count(sessions, "Session", "Sessions")} zugeordnet";
 
     private async Task DeleteAsync(string text, Func<Task> delete)
     {

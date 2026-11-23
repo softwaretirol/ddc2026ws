@@ -16,11 +16,17 @@ public static class DialogExtensions
         return result is { Canceled: false };
     }
 
-    /// <summary>Fragt nach Bestätigung und führt danach die Löschaktion aus; Fehler landen in der Snackbar.</summary>
-    public static async Task<bool> ConfirmDeleteAsync(this IDialogService dialogs, ISnackbar snackbar, string text, Func<Task> delete)
+    /// <summary>
+    /// Fragt nach Bestätigung und führt danach die Löschaktion aus; Fehler landen in der Snackbar.
+    /// Mit <paramref name="confirmName"/> muss dieser Name zur Bestätigung exakt eingetippt werden.
+    /// </summary>
+    public static async Task<bool> ConfirmDeleteAsync(this IDialogService dialogs, ISnackbar snackbar, string text, Func<Task> delete, string? confirmName = null)
     {
-        var parameters = new DialogParameters<ConfirmDialog> { { x => x.Text, text } };
-        var dialog = await dialogs.ShowAsync<ConfirmDialog>("Löschen bestätigen", parameters, new DialogOptions { MaxWidth = MaxWidth.ExtraSmall });
+        var parameters = new DialogParameters<ConfirmDialog> { { x => x.Text, text }, { x => x.ConfirmName, confirmName } };
+        var options = confirmName is null
+            ? new DialogOptions { MaxWidth = MaxWidth.ExtraSmall }
+            : new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true };
+        var dialog = await dialogs.ShowAsync<ConfirmDialog>("Löschen bestätigen", parameters, options);
         if (await dialog.Result is not { Canceled: false }) return false;
 
         try
