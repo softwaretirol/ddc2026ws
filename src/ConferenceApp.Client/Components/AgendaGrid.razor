@@ -1,4 +1,5 @@
-@* Agenda-Raster: Räume als Spalten, Uhrzeit als Zeilen (5-Minuten-Raster). *@
+@* Agenda-Raster: Räume als Spalten, Uhrzeit als Zeilen (5-Minuten-Raster).
+   Pausen ab 30 Minuten (siehe AgendaTimeline) werden auf eine beschriftete Zeile gestaucht. *@
 
 @if (Sessions.Count == 0)
 {
@@ -17,11 +18,15 @@ else
                 </div>
             }
 
-            @for (var h = _start.Hour; h < _end.Hour || (h == _end.Hour && _end.Minute > 0); h++)
+            @foreach (var t in HourMarks())
             {
-                var t = new TimeOnly(h, 0);
-                <div class="agenda-hour" style="grid-row:@(Row(t)) / span @(60 / Slot);grid-column:1">@Format.Time(t)</div>
+                <div class="agenda-hour" style="grid-row:@(Row(t)) / span @(HourSpan(t));grid-column:1">@Format.Time(t)</div>
                 <div class="agenda-line" style="grid-row:@(Row(t));grid-column:2 / span @Rooms.Count"></div>
+            }
+
+            @foreach (var gap in _timeline.Gaps)
+            {
+                <div class="agenda-gap" style="grid-row:@(Row(gap.Start));grid-column:2 / span @Rooms.Count">@gap.Label</div>
             }
 
             @foreach (var s in Sessions)
@@ -53,8 +58,13 @@ else
     [Parameter, EditorRequired] public List<RoomDto> Rooms { get; set; } = [];
     [Parameter, EditorRequired] public string Slug { get; set; } = "";
 
+    private const int GapHeight = 32;  // Pixel für eine gestauchte Pause
+
     private TimeOnly _start;
     private TimeOnly _end;
+    private AgendaTimeline _timeline = AgendaTimeline.Build([]);
+    private int[] _firstRow = [];       // erste Rasterzeile je Segment
+    private int _rowCount;              // Anzahl Rasterzeilen ohne Header
 
     protected override void OnParametersSet()
     {
@@ -62,12 +72,61 @@ else
         _start = new TimeOnly(Sessions.Min(s => s.StartTime).Hour, 0);
         var last = Sessions.Max(s => s.EndTime);
         _end = last.Minute == 0 ? last : new TimeOnly(Math.Min(last.Hour + 1, 23), last.Hour >= 23 ? 59 : 0);
+
+        _timeline = AgendaTimeline.Build(Sessions, _start, _end);
+        _firstRow = new int[_timeline.Segments.Count];
+        _rowCount = 0;
+        for (var i = 0; i < _timeline.Segments.Count; i++)
+        {
+            _firstRow[i] = _rowCount + 2;  // Zeile 1 ist der Raum-Header.
+            _rowCount += SegmentRows(_timeline.Segments[i]);
+        }
     }
 
-    // Zeile 1 ist der Raum-Header.
-    private int Row(TimeOnly t) => (int)((t - _start).TotalMinutes / Slot) + 2;
+    // Programm-Segmente maßstabsgetreu in 5-Minuten-Zeilen, Pausen als genau eine Zeile.
+    private static int SegmentRows(TimelineSegment seg) =>
+        seg.IsGap ? 1 : Math.Max(1, (int)Math.Ceiling(seg.Duration.TotalMinutes / Slot));
 
-    private string GridStyle =>
-        $"grid-template-columns:64px repeat({Rooms.Count}, minmax(190px, 1fr));" +
-        $"grid-template-rows:48px repeat({(int)Math.Ceiling((_end - _start).TotalMinutes / Slot)}, {RowHeight}px);";
+    // Rasterzeile zu einem Zeitpunkt: Zeiten in einer Pause landen auf deren Zeile,
+    // das Ende der Zeitachse auf der Zeile nach der letzten.
+    private int Row(TimeOnly t)
+    {
+        for (var i = 0; i < _timeline.Segments.Count; i++)
+        {
+            var seg = _timeline.Segments[i];
+            if (!seg.Contains(t)) continue;
+            return seg.IsGap ? _firstRow[i] : _firstRow[i] + (int)((t - seg.Start).TotalMinutes / Slot);
+        }
+        return t < _timeline.Start ? 2 : _rowCount + 2;
+    }
+
+    // Volle Stunden außerhalb von Pausen.
+    private IEnumerable<TimeOnly> HourMarks()
+    {
+        for (var h = _start.Hour; h < _end.Hour || (h == _end.Hour && _end.Minute > 0); h++)
+        {
+            var t = new TimeOnly(h, 0);
+            if (!_timeline.IsInGap(t)) yield return t;
+        }
+    }
+
+    // Stundenbeschriftung reicht bis zur nächsten vollen Stunde, höchstens bis zum Segmentende.
+    private int HourSpan(TimeOnly t)
+    {
+        var segEnd = _timeline.SegmentAt(t)?.End ?? _end;
+        var next = t.Hour < 23 ? new TimeOnly(t.Hour + 1, 0) : segEnd;
+        if (next > segEnd) next = segEnd;
+        return Math.Max(1, Row(next) - Row(t));
+    }
+
+    private string GridStyle
+    {
+        get
+        {
+            var rows = string.Join(" ", _timeline.Segments.Select(seg =>
+                seg.IsGap ? $"{GapHeight}px" : $"repeat({SegmentRows(seg)}, {RowHeight}px)"));
+            return $"grid-template-columns:64px repeat({Rooms.Count}, minmax(190px, 1fr));" +
+                   $"grid-template-rows:48px {rows};";
+        }
+    }
 }

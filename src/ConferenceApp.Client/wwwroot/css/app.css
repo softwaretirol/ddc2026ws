@@ -77,6 +77,22 @@ html, body {
     z-index: 0;
 }
 
+/* Gestauchte Pause (≥ 30 Minuten ohne Session in allen Räumen), über alle Räume beschriftet. */
+.agenda-gap {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 3px 0;
+    font-size: .8rem;
+    color: var(--mud-palette-text-secondary);
+    background: repeating-linear-gradient(-45deg,
+        var(--mud-palette-background-gray) 0 6px,
+        transparent 6px 12px);
+    border: 1px dashed var(--mud-palette-lines-default);
+    border-radius: 6px;
+    z-index: 0;
+}
+
 .agenda-session {
     z-index: 1;
     display: flex;
