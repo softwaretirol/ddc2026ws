@@ -1,0 +1,32 @@
+@* Admin: Vorschau des Agenda-Rasters eines Tages (nur Anzeige, keine Bearbeitung). *@
+<MudDialog>
+    <DialogContent>
+        <div class="d-flex flex-wrap gap-1 mb-3" role="tablist">
+            @foreach (var day in Format.Days(Conference.StartDate, Conference.EndDate))
+            {
+                var selected = day == _day;
+                <MudButton Size="Size.Small" Variant="@(selected ? Variant.Filled : Variant.Text)" Color="Color.Primary"
+                           DropShadow="false" role="tab" aria-selected="@(selected ? "true" : "false")"
+                           OnClick="() => _day = day">@Format.Day(day)</MudButton>
+            }
+        </div>
+        <AgendaGrid Sessions="SessionsForDay" Rooms="Rooms" Slug="@Conference.Slug" />
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="() => Dialog.Close()">Schließen</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] private IMudDialogInstance Dialog { get; set; } = default!;
+    [Parameter, EditorRequired] public ConferenceDto Conference { get; set; } = default!;
+    [Parameter, EditorRequired] public List<RoomDto> Rooms { get; set; } = [];
+    [Parameter, EditorRequired] public List<SessionDto> Sessions { get; set; } = [];
+    [Parameter] public DateOnly Day { get; set; }
+
+    private DateOnly _day;
+
+    protected override void OnInitialized() => _day = Day == default ? Conference.StartDate : Day;
+
+    private List<SessionDto> SessionsForDay => Sessions.Where(s => s.Day == _day).ToList();
+}
