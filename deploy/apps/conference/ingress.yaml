@@ -1,11 +1,11 @@
 # Öffentlich unter https://ddc2026.giesswein.dev – Zertifikat von cert-manager.
-# Issuer: erst "letsencrypt-staging" prüfen, dann "letsencrypt-prod".
+# Issuer: letsencrypt-prod (Staging wurde am 23.11.2026 erfolgreich geprüft).
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: conference-app
   annotations:
-    cert-manager.io/cluster-issuer: letsencrypt-staging
+    cert-manager.io/cluster-issuer: letsencrypt-prod
 spec:
   ingressClassName: traefik
   tls:
