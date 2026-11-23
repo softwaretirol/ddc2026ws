@@ -27,10 +27,10 @@
             <MudTd DataLabel="Zeitraum">@Format.DateRange(context.StartDate, context.EndDate)</MudTd>
             <MudTd DataLabel="Ort">@context.Location</MudTd>
             <MudTd Class="col-actions">
-                <MudTooltip Text="Agenda verwalten"><MudIconButton Icon="@Icons.Material.Filled.ViewTimeline" Href="@($"/admin/konferenzen/{context.Id}")" /></MudTooltip>
-                <MudTooltip Text="Öffentliche Agenda"><MudIconButton Icon="@Icons.Material.Filled.OpenInNew" Href="@($"/konferenzen/{context.Slug}")" /></MudTooltip>
-                <MudTooltip Text="Bearbeiten"><MudIconButton Icon="@Icons.Material.Filled.Edit" OnClick="() => EditAsync(context)" /></MudTooltip>
-                <MudTooltip Text="Löschen"><MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" OnClick="() => DeleteAsync(context)" /></MudTooltip>
+                <MudTooltip Text="Agenda verwalten"><MudIconButton Icon="@Icons.Material.Filled.ViewTimeline" Href="@($"/admin/konferenzen/{context.Id}")" aria-label="Agenda verwalten" /></MudTooltip>
+                <MudTooltip Text="Öffentliche Agenda"><MudIconButton Icon="@Icons.Material.Filled.OpenInNew" Href="@($"/konferenzen/{context.Slug}")" aria-label="Öffentliche Agenda" /></MudTooltip>
+                <MudTooltip Text="Bearbeiten"><MudIconButton Icon="@Icons.Material.Filled.Edit" OnClick="() => EditAsync(context)" aria-label="Bearbeiten" /></MudTooltip>
+                <MudTooltip Text="Löschen"><MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" OnClick="() => DeleteAsync(context)" aria-label="Löschen" /></MudTooltip>
             </MudTd>
         </RowTemplate>
         <NoRecordsContent>
@@ -80,7 +80,25 @@
 
     private async Task DeleteAsync(ConferenceDto c)
     {
-        if (await Dialogs.ConfirmDeleteAsync(Snackbar, $"Konferenz „{c.Name}“ inkl. aller Tracks, Räume und Sessions löschen?", () => Api.DeleteConferenceAsync(c.Id)))
+        // Zahlen über die vorhandenen Listen-Endpunkte der Konferenz ermitteln – keine eigene Zähl-API nötig.
+        string consequences;
+        try
+        {
+            var sessions = Api.GetSessionsAsync(c.Id);
+            var tracks = Api.GetTracksAsync(c.Id);
+            var rooms = Api.GetRoomsAsync(c.Id);
+            await Task.WhenAll(sessions, tracks, rooms);
+            consequences = $"{Format.Count(sessions.Result.Count, "Session", "Sessions")}, "
+                + $"{Format.Count(tracks.Result.Count, "Track", "Tracks")} und {Format.Count(rooms.Result.Count, "Raum", "Räume")}";
+        }
+        catch (ApiException ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Error);
+            return;
+        }
+
+        var text = $"Konferenz „{c.Name}“ löschen? Dabei werden auch {consequences} endgültig gelöscht.";
+        if (await Dialogs.ConfirmDeleteAsync(Snackbar, text, () => Api.DeleteConferenceAsync(c.Id), confirmName: c.Name))
             await LoadAsync();
     }
 }
