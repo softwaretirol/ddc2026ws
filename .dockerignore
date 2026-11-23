@@ -1,0 +1,16 @@
+**/bin/
+**/obj/
+**/.vs/
+**/.idea/
+**/.vscode/
+**/*.user
+**/node_modules/
+.git/
+.github/
+.claude/
+docs/
+tests/
+**/TestResults/
+Dockerfile
+compose.yaml
+*.md

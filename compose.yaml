@@ -1,0 +1,32 @@
+# Lokaler Start des Container-Images mit PostgreSQL.
+#   docker compose up --build     -> http://localhost:8080
+# Für ein veröffentlichtes Image statt "build:" z. B. image: ghcr.io/softwaretirol/ddc2026ws:latest verwenden.
+# Das Datenbank-Passwort kommt aus der Umgebungsvariable POSTGRES_PASSWORD (oder einer .env-Datei, nicht einchecken).
+services:
+  db:
+    image: postgres:17
+    environment:
+      POSTGRES_DB: conferencedb
+      POSTGRES_USER: conference
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD setzen, z. B. in einer .env-Datei}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U conference -d conferencedb"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  app:
+    build: .
+    image: conferenceapp:local
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      ConnectionStrings__conferencedb: "Host=db;Database=conferencedb;Username=conference;Password=${POSTGRES_PASSWORD:?POSTGRES_PASSWORD setzen, z. B. in einer .env-Datei}"
+    ports:
+      - "8080:8080"
+
+volumes:
+  pgdata:

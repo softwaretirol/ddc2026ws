@@ -1,5 +1,6 @@
 using ConferenceApp.Api.Data;
 using ConferenceApp.Api.Endpoints;
+using Microsoft.AspNetCore.StaticFiles;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -36,6 +37,23 @@ app.MapTrackEndpoints();
 app.MapRoomEndpoints();
 app.MapSessionEndpoints();
 app.MapSpeakerEndpoints();
+
+// Im Container liegt der veröffentlichte Blazor-Client in wwwroot: dann liefert die API ihn selbst aus
+// (gleicher Origin, kein CORS nötig). In der Entwicklung mit Aspire gibt es kein wwwroot – dort entfällt das.
+if (app.Environment.WebRootFileProvider.GetFileInfo("index.html").Exists)
+{
+    var contentTypes = new FileExtensionContentTypeProvider();
+    contentTypes.Mappings[".wasm"] = "application/wasm";
+    contentTypes.Mappings[".dat"] = "application/octet-stream";
+    contentTypes.Mappings[".blat"] = "application/octet-stream";
+    contentTypes.Mappings[".webcil"] = "application/octet-stream";
+    contentTypes.Mappings[".pdb"] = "application/octet-stream";
+
+    app.UseStaticFiles(new StaticFileOptions { ContentTypeProvider = contentTypes });
+    // Unbekannte API-Routen bleiben 404 statt index.html; alles andere sind Client-Routen.
+    app.MapFallback("/api/{**rest}", () => Results.NotFound());
+    app.MapFallbackToFile("index.html");
+}
 
 // Migrationen anwenden und Demodaten einspielen.
 using (var scope = app.Services.CreateScope())

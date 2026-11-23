@@ -111,6 +111,39 @@ So läuft ein E2E-Testlauf ab:
 - Jeder Test legt eigene Konferenzen mit eindeutigem Slug an. Die Seed-Konferenz „Dev Conference 2026“ wird nur gelesen.
 - Schlägt ein UI-Test fehl, liegen Screenshot und Playwright-Trace unter `tests/ConferenceApp.E2ETests/bin/<Konfiguration>/net11.0/TestResults/playwright/`. Den Trace öffnet `pwsh bin/.../playwright.ps1 show-trace <datei>.trace.zip`.
 
+## Container
+
+Die App gibt es als **ein** Container-Image: Die API liefert den Blazor-Client mit aus, beides läuft unter derselben Adresse und auf Port 8080. Die Datenbank gehört nicht ins Image.
+
+**Lokal mit Docker Compose** (startet zusätzlich PostgreSQL):
+
+```powershell
+$env:POSTGRES_PASSWORD = '<frei wählen>'   # oder in einer .env-Datei, nicht einchecken
+docker compose up --build                   # -> http://localhost:8080
+```
+
+**Veröffentlichtes Image starten:**
+
+```powershell
+docker run -p 8080:8080 `
+  -e ConnectionStrings__conferencedb="Host=<db-host>;Database=conferencedb;Username=<user>;Password=<passwort>" `
+  ghcr.io/softwaretirol/ddc2026ws:latest
+```
+
+**Veröffentlichung:** Der Workflow [.github/workflows/container.yml](.github/workflows/container.yml) läuft so:
+
+| Auslöser | Was passiert |
+|---|---|
+| Push auf `main` | Unit- und E2E-Tests laufen. Sind sie grün, wird das Image gebaut und als `ghcr.io/softwaretirol/ddc2026ws:latest` und `:sha-<commit>` veröffentlicht. |
+| Pull Request | Tests laufen, das Image wird nur gebaut und nicht veröffentlicht. |
+
+Das Paket auf ghcr.io ist nach dem ersten Push privat. Die Sichtbarkeit stellst du unter *Packages → ddc2026ws → Package settings* um.
+
+**Hinweise für den Betrieb:**
+- TLS übernimmt ein vorgeschalteter Reverse Proxy.
+- Beim Start wendet die App die Migrationen an und spielt in eine leere Datenbank die Demo-Konferenz ein.
+- Die App hat keine Anmeldung, der Admin-Bereich ist frei zugänglich. Öffentlich betreiben lässt sie sich deshalb erst nach den Härtungen aus der Security-Analyse.
+
 ## Entwicklung
 
 **Neue Migration anlegen:**
