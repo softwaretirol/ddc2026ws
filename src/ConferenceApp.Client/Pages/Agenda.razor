@@ -1,5 +1,6 @@
 @page "/konferenzen/{Slug}"
 @inject ApiClient Api
+@inject NavigationManager Nav
 
 <PageTitle>@(_agenda?.Conference.Name ?? "Agenda")</PageTitle>
 
@@ -22,7 +23,7 @@
         }
     </header>
 
-    @* Eine Toolbar: Tage links, Track-Filter rechts *@
+    @* Eine Toolbar: Tage links, Suche, Track-Filter rechts *@
     <div class="agenda-toolbar">
         <div class="agenda-days" role="tablist">
             @foreach (var day in Format.Days(conf.StartDate, conf.EndDate))
@@ -30,9 +31,14 @@
                 var selected = day == _day;
                 <MudButton Size="Size.Small" Variant="@(selected ? Variant.Filled : Variant.Text)" Color="Color.Primary"
                            DropShadow="false" role="tab" aria-selected="@(selected ? "true" : "false")"
-                           OnClick="() => _day = day">@Format.Day(day)</MudButton>
+                           OnClick="() => _day = day">@DayLabel(day)</MudButton>
             }
         </div>
+
+        <MudTextField T="string" Value="_search" ValueChanged="OnSearchChanged" DebounceInterval="300"
+                      Placeholder="Titel, Thema oder Speaker suchen…" Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search"
+                      Clearable="true" Margin="Margin.Dense" Variant="Variant.Outlined" Class="agenda-search mt-0"
+                      aria-label="Agenda durchsuchen" />
 
         @if (_agenda.Tracks.Count > 0)
         {
@@ -49,31 +55,85 @@
         }
     </div>
 
-    <AgendaGrid Sessions="SessionsFor(_day)" Rooms="_agenda.Rooms" Slug="@Slug" />
+    @if (IsSearching && SessionsFor(_day).Count == 0)
+    {
+        <MudAlert Severity="Severity.Info" Class="my-4">Keine Treffer für „@_search.Trim()“ an diesem Tag.</MudAlert>
+    }
+    else
+    {
+        <AgendaGrid Sessions="SessionsFor(_day)" Rooms="_agenda.Rooms" Slug="@Slug" />
+    }
 </PageState>
 
 @code {
     [Parameter] public string Slug { get; set; } = "";
 
+    /// <summary>Suchbegriff aus der URL (<c>?q=…</c>), damit Suchergebnisse teil- und verlinkbar sind.</summary>
+    [SupplyParameterFromQuery(Name = "q")] public string? Query { get; set; }
+
     private AgendaDto? _agenda;
+    private string? _loadedSlug;
     private string? _error;
     private int? _trackFilter;
     private DateOnly _day;
+    private string _search = "";
     private List<BreadcrumbItem> _breadcrumbs = [];
 
     protected override async Task OnParametersSetAsync()
     {
+        // Nur übernehmen, wenn die URL wirklich etwas anderes sagt – sonst würde z. B. ein
+        // gerade getipptes Leerzeichen am Ende durch den getrimmten URL-Wert überschrieben.
+        if ((Query ?? "") != _search.Trim()) _search = Query ?? "";
+
+        // Eine reine Query-Änderung (?q=…) soll die Agenda nicht neu laden.
+        if (Slug == _loadedSlug) { SelectDayWithHits(); return; }
+
         _agenda = null;
         _error = null;
         try
         {
             _agenda = await Api.GetAgendaAsync(Slug);
+            _loadedSlug = Slug;
             _day = _agenda.Conference.StartDate;
             _breadcrumbs = [new("Konferenzen", "/"), new(_agenda.Conference.Name, null, disabled: true)];
+            SelectDayWithHits();
         }
         catch (ApiException ex) { _error = ex.IsNotFound ? "Diese Konferenz gibt es nicht." : ex.Message; }
     }
 
+    private bool IsSearching => !string.IsNullOrWhiteSpace(_search);
+
+    private void OnSearchChanged(string? value)
+    {
+        _search = value ?? "";
+        SelectDayWithHits();
+        var q = IsSearching ? _search.Trim() : null;
+        Nav.NavigateTo(Nav.GetUriWithQueryParameter("q", q), replace: true);
+    }
+
+    /// <summary>Hat der gewählte Tag keine Treffer, springt die Ansicht zum ersten Tag mit Treffern.</summary>
+    private void SelectDayWithHits()
+    {
+        if (_agenda is null || !IsSearching || SessionsFor(_day).Count > 0) return;
+        var first = Format.Days(_agenda.Conference.StartDate, _agenda.Conference.EndDate)
+            .FirstOrDefault(d => SessionsFor(d).Count > 0);
+        if (first != default) _day = first;
+    }
+
+    /// <summary>Während einer Suche steht die Trefferzahl am Tagesbutton („Di · 2“).</summary>
+    private string DayLabel(DateOnly day) =>
+        IsSearching ? $"{Format.Day(day)} · {SessionsFor(day).Count}" : Format.Day(day);
+
     private List<SessionDto> SessionsFor(DateOnly day) =>
-        _agenda!.Sessions.Where(s => s.Day == day && (_trackFilter is null || s.TrackId == _trackFilter)).ToList();
+        _agenda!.Sessions.Where(s => s.Day == day && (_trackFilter is null || s.TrackId == _trackFilter) && Matches(s)).ToList();
+
+    /// <summary>Clientseitige Suche über Titel, Abstract und Speaker-Namen, ohne Groß-/Kleinschreibung.</summary>
+    private bool Matches(SessionDto s)
+    {
+        if (!IsSearching) return true;
+        var term = _search.Trim();
+        return s.Title.Contains(term, StringComparison.OrdinalIgnoreCase)
+            || (s.Abstract?.Contains(term, StringComparison.OrdinalIgnoreCase) ?? false)
+            || s.Speakers.Any(sp => sp.Name.Contains(term, StringComparison.OrdinalIgnoreCase));
+    }
 }

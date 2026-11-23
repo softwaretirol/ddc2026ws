@@ -31,6 +31,7 @@ html, body {
 
 .agenda-days, .agenda-tracks { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
 .agenda-tracks .mud-chip { margin: 0; }
+.agenda-search { flex: 1 1 220px; max-width: 320px; }
 
 /* ---------- Agenda-Raster ---------- */
 .agenda-scroll {
