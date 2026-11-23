@@ -1,0 +1,43 @@
+# Hetzner Cloud Controller Manager: providerID/Node-Adressen und Services vom Typ LoadBalancer.
+# Token und Netz-ID kommen aus dem Secret kube-system/hcloud (angelegt per infra/hetzner-talos/bootstrap).
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: hcloud-ccm
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "-3"
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: https://charts.hetzner.cloud
+    chart: hcloud-cloud-controller-manager
+    targetRevision: 1.39.3
+    helm:
+      valuesObject:
+        networking:
+          enabled: true
+          clusterCIDR: 10.244.0.0/16
+        env:
+          # Flannel (VXLAN) übernimmt das Pod-Routing; Routen im Hetzner-Netz sind nicht nötig.
+          HCLOUD_NETWORK_ROUTES_ENABLED:
+            value: "false"
+          HCLOUD_LOAD_BALANCERS_LOCATION:
+            value: hel1
+          HCLOUD_LOAD_BALANCERS_USE_PRIVATE_IP:
+            value: "true"
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: kube-system
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    retry:
+      limit: 10
+      backoff:
+        duration: 15s
+        factor: 2
+        maxDuration: 5m

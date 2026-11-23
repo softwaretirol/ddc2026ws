@@ -17,6 +17,16 @@ locals {
     }
   })
 
+  # Kubelet mit --cloud-provider=external: der Hetzner Cloud Controller Manager (deploy/argocd/hcloud-ccm.yaml)
+  # übernimmt providerID, Node-Adressen und Load-Balancer-Ziele.
+  cloud_provider_patch = yamlencode({
+    cluster = {
+      externalCloudProvider = {
+        enabled = true
+      }
+    }
+  })
+
   # Talos-API-Zertifikat mit öffentlicher und privater IP; etcd kommuniziert über das private Netz.
   # Das kube-apiserver-Zertifikat enthält die Node-Adressen (inkl. öffentlicher IPv4) automatisch.
   control_plane_patch = yamlencode({
@@ -41,7 +51,7 @@ data "talos_machine_configuration" "control_plane" {
   machine_type     = "controlplane"
   machine_secrets  = talos_machine_secrets.this.machine_secrets
   talos_version    = var.talos_version
-  config_patches   = [local.common_patch, local.control_plane_patch]
+  config_patches   = [local.common_patch, local.cloud_provider_patch, local.control_plane_patch]
 }
 
 data "talos_machine_configuration" "worker" {
@@ -50,7 +60,7 @@ data "talos_machine_configuration" "worker" {
   machine_type     = "worker"
   machine_secrets  = talos_machine_secrets.this.machine_secrets
   talos_version    = var.talos_version
-  config_patches   = [local.common_patch]
+  config_patches   = [local.common_patch, local.cloud_provider_patch]
 }
 
 data "talos_client_configuration" "this" {

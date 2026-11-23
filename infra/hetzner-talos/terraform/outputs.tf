@@ -16,6 +16,11 @@ output "workers" {
   }]
 }
 
+output "network_id" {
+  description = "ID des privaten Hetzner-Netzes (für Cloud Controller Manager / Load Balancer)."
+  value       = hcloud_network.cluster.id
+}
+
 output "admin_cidrs" {
   description = "Netze, die Kubernetes- und Talos-API erreichen dürfen."
   value       = local.admin_cidrs
