@@ -77,8 +77,14 @@ public class ApiClient(HttpClient http)
     private static async Task<HttpResponseMessage> SafeAsync(Func<Task<HttpResponseMessage>> call)
     {
         try { return await call(); }
-        catch (HttpRequestException) { throw new ApiException("Die API ist nicht erreichbar.", HttpStatusCode.ServiceUnavailable); }
+        // Netzwerkfehler und Timeouts: Server nicht erreichbar
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException)
+        {
+            throw new ApiException(UnavailableMessage, HttpStatusCode.ServiceUnavailable);
+        }
     }
+
+    private const string UnavailableMessage = "Der Server ist gerade nicht erreichbar. Prüfe deine Internetverbindung und versuche es erneut.";
 
     private static async Task EnsureSuccessAsync(HttpResponseMessage response)
     {
@@ -87,15 +93,19 @@ public class ApiClient(HttpClient http)
         ApiProblem? problem = null;
         try { problem = await response.Content.ReadFromJsonAsync<ApiProblem>(); } catch { /* kein ProblemDetails-Body */ }
 
+        // Fehlertext nach Ursache: Gateway/Netzwerk, Validierung, 404, Serverfehler
+        var status = response.StatusCode;
         var message = problem switch
         {
+            _ when status is HttpStatusCode.BadGateway or HttpStatusCode.ServiceUnavailable or HttpStatusCode.GatewayTimeout => UnavailableMessage,
+            _ when (int)status >= 500 => $"Auf dem Server ist ein Fehler aufgetreten (Fehler {(int)status}). Bitte versuche es später erneut.",
             { Errors.Count: > 0 } => string.Join(" ", problem.Errors.SelectMany(e => e.Value)),
             { Detail: { Length: > 0 } detail } => detail,
-            _ when response.StatusCode == HttpStatusCode.NotFound => "Nicht gefunden.",
+            _ when status == HttpStatusCode.NotFound => "Der angeforderte Inhalt wurde nicht gefunden.",
             { Title: { Length: > 0 } title } => title,
-            _ => $"Fehler {(int)response.StatusCode}.",
+            _ => $"Fehler {(int)status}.",
         };
-        throw new ApiException(message, response.StatusCode);
+        throw new ApiException(message, status);
     }
 
     private sealed record ApiProblem(string? Title, string? Detail, Dictionary<string, string[]>? Errors);

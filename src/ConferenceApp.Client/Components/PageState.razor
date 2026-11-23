@@ -1,11 +1,44 @@
-@* Zeigt Lade- bzw. Fehlerzustand; ChildContent erst, wenn geladen. *@
-@if (Error is not null)
+@* Zeigt Lade- bzw. Fehlerzustand; ChildContent erst, wenn geladen.
+   - Skeleton: Platzhalter in der Form des späteren Inhalts, damit das Layout beim Laden nicht springt.
+   - OnRetry: blendet bei Fehlern „Erneut versuchen“ ein; während des neuen Versuchs wird das Skeleton gezeigt.
+   - NotFound: der Fehler ist ein 404 – dann ohne Wiederholen, mit Link zurück. *@
+@if (_retrying || (Loading && Error is null))
 {
-    <MudAlert Severity="Severity.Error" Class="my-4">@Error</MudAlert>
+    <div class="page-skeleton" aria-busy="true">
+        <span class="visually-hidden" role="status">Wird geladen …</span>
+        @if (Skeleton is not null)
+        {
+            @Skeleton
+        }
+        else
+        {
+            <MudSkeleton SkeletonType="SkeletonType.Rectangle" Height="56px" Class="mb-2 rounded" />
+            <MudSkeleton SkeletonType="SkeletonType.Rectangle" Height="56px" Class="mb-2 rounded" />
+            <MudSkeleton SkeletonType="SkeletonType.Rectangle" Height="56px" Class="mb-2 rounded" />
+        }
+    </div>
 }
-else if (Loading)
+else if (Error is not null)
 {
-    <MudProgressLinear Color="Color.Primary" Indeterminate="true" Class="my-4" />
+    <div class="state-panel" role="alert">
+        @if (NotFound)
+        {
+            <MudIcon Icon="@Icons.Material.Outlined.SearchOff" Class="state-panel-icon" />
+            <MudText Typo="Typo.h6">Nicht gefunden</MudText>
+            <MudText Typo="Typo.body1" Color="Color.Secondary">@Error</MudText>
+            <MudButton Href="@BackHref" Variant="Variant.Outlined" Color="Color.Primary" StartIcon="@Icons.Material.Filled.ArrowBack" Class="mt-4">@BackText</MudButton>
+        }
+        else
+        {
+            <MudIcon Icon="@Icons.Material.Outlined.CloudOff" Class="state-panel-icon" />
+            <MudText Typo="Typo.h6">Inhalte konnten nicht geladen werden</MudText>
+            <MudText Typo="Typo.body1" Color="Color.Secondary">@Error</MudText>
+            @if (OnRetry.HasDelegate)
+            {
+                <MudButton OnClick="RetryAsync" Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Refresh" Class="mt-4">Erneut versuchen</MudButton>
+            }
+        }
+    </div>
 }
 else
 {
@@ -15,5 +48,27 @@ else
 @code {
     [Parameter] public bool Loading { get; set; }
     [Parameter] public string? Error { get; set; }
+
+    /// <summary>Der Fehler ist ein 404 – zeigt „Nicht gefunden“ mit Rücklink statt „Erneut versuchen“.</summary>
+    [Parameter] public bool NotFound { get; set; }
+
+    /// <summary>Lädt die Daten erneut. Die Seite muss dabei ihren Fehler zurücksetzen.</summary>
+    [Parameter] public EventCallback OnRetry { get; set; }
+
+    /// <summary>Platzhalter während des Ladens; ohne Angabe ein generisches Skeleton.</summary>
+    [Parameter] public RenderFragment? Skeleton { get; set; }
+
+    [Parameter] public string BackHref { get; set; } = "/";
+    [Parameter] public string BackText { get; set; } = "Zur Startseite";
+
     [Parameter] public RenderFragment? ChildContent { get; set; }
+
+    private bool _retrying;
+
+    private async Task RetryAsync()
+    {
+        _retrying = true;
+        try { await OnRetry.InvokeAsync(); }
+        finally { _retrying = false; }
+    }
 }

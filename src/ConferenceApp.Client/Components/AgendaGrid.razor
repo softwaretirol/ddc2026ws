@@ -1,4 +1,7 @@
-@* Agenda-Raster: Räume als Spalten, Uhrzeit als Zeilen (5-Minuten-Raster). *@
+@* Agenda-Raster: Räume als Spalten, Uhrzeit als Zeilen (5-Minuten-Raster).
+   Pausen ab 30 Minuten (siehe AgendaTimeline) werden auf eine beschriftete Zeile gestaucht. *@
+@inject IDialogService DialogService
+@inject IJSRuntime JS
 
 @if (Sessions.Count == 0)
 {
@@ -12,23 +15,28 @@ else
             @for (var i = 0; i < Rooms.Count; i++)
             {
                 <div class="agenda-room" style="grid-column:@(i + 2);grid-row:1">
-                    <strong>@Rooms[i].Name</strong>
+                    <h2 class="agenda-room-name">@Rooms[i].Name</h2>
                     @if (Rooms[i].Capacity is { } cap) { <span class="agenda-cap">@cap Plätze</span> }
                 </div>
             }
 
-            @for (var h = _start.Hour; h < _end.Hour || (h == _end.Hour && _end.Minute > 0); h++)
+            @foreach (var t in HourMarks())
             {
-                var t = new TimeOnly(h, 0);
-                <div class="agenda-hour" style="grid-row:@(Row(t)) / span @(60 / Slot);grid-column:1">@Format.Time(t)</div>
+                <div class="agenda-hour" style="grid-row:@(Row(t)) / span @(HourSpan(t));grid-column:1">@Format.Time(t)</div>
                 <div class="agenda-line" style="grid-row:@(Row(t));grid-column:2 / span @Rooms.Count"></div>
+            }
+
+            @foreach (var gap in _timeline.Gaps)
+            {
+                <div class="agenda-gap" style="grid-row:@(Row(gap.Start));grid-column:2 / span @Rooms.Count">@gap.Label</div>
             }
 
             @foreach (var s in Sessions)
             {
                 var col = Rooms.FindIndex(r => r.Id == s.RoomId) + 2;
-                <a class="agenda-session" href="@($"/konferenzen/{Slug}/sessions/{s.Id}{LinkQuery}")"
-                   style="grid-column:@col;grid-row:@(Row(s.StartTime)) / @(Row(s.EndTime));border-left-color:@(s.TrackColor ?? "#9E9E9E")">
+                <a class="@CardClass(s)" href="@DetailHref(s)" aria-label="@SessionLabel(s)" aria-haspopup="dialog"
+                   @onclick="e => OpenQuickView(e, s)" @onclick:preventDefault="true"
+                   style="grid-column:@col;grid-row:@(Row(s.StartTime)) / @(Row(s.EndTime));border-left-color:@(s.TrackColor ?? "var(--mud-palette-gray-default)")">
                     <span class="agenda-time">@Format.Range(s.StartTime, s.EndTime)</span>
                     <span class="agenda-title">@s.Title</span>
                     @if (s.Speakers.Count > 0)
@@ -37,9 +45,26 @@ else
                     }
                     @if (s.TrackName is not null)
                     {
-                        <span class="agenda-track" style="color:@s.TrackColor">@s.TrackName</span>
+                        <span class="agenda-track"><span class="color-dot" style="background:@s.TrackColor" aria-hidden="true"></span>@s.TrackName</span>
+                    }
+                    else if (MarkSessionsForAll)
+                    {
+                        <span class="agenda-track agenda-track-all">Für alle</span>
+                    }
+                    @if (ShowAbstract(s))
+                    {
+                        <span class="agenda-abstract">@s.Abstract</span>
                     }
                 </a>
+            }
+
+            @if (Now is { } now && NowRow(now) is { } nowRow)
+            {
+                @* Jetzt-Linie: in die passende 5-Minuten-Zeile gesetzt und minutengenau nach unten versetzt *@
+                <div class="agenda-now" aria-hidden="true"
+                     style="grid-row:@nowRow;grid-column:1 / span @(Rooms.Count + 1);margin-top:@(NowOffset(now))px">
+                    <span class="agenda-now-label">@Format.Time(now)</span>
+                </div>
             }
         </div>
     </div>
@@ -47,16 +72,28 @@ else
 
 @code {
     private const int Slot = 5;        // Minuten pro Rasterzeile
-    private const int RowHeight = 11;  // Pixel pro Rasterzeile
+    private const int RowHeight = 14;  // Pixel pro Rasterzeile (15 Minuten = 42 px)
+    private const int CompactMaxMinutes = 20;  // bis hierhin zeigt die Karte nur den Titel
+    private const int AbstractMinMinutes = 60; // ab hier ist Platz für einen Abstract-Zweizeiler
 
     [Parameter, EditorRequired] public List<SessionDto> Sessions { get; set; } = [];
     [Parameter, EditorRequired] public List<RoomDto> Rooms { get; set; } = [];
     [Parameter, EditorRequired] public string Slug { get; set; } = "";
     /// <summary>Optionaler Query-String (inkl. „?“) für die Session-Links, z. B. der aktuelle Tag/Filter.</summary>
     [Parameter] public string? LinkQuery { get; set; }
+    /// <summary>Sessions ohne Track als „Für alle“ kennzeichnen (z. B. bei aktivem Track-Filter).</summary>
+    [Parameter] public bool MarkSessionsForAll { get; set; }
+
+    private const int GapHeight = 32;  // Pixel für eine gestauchte Pause
+
+    /// <summary>Aktuelle Uhrzeit – nur gesetzt, wenn der angezeigte Tag heute ist (Jetzt-Linie, laufende Sessions).</summary>
+    [Parameter] public TimeOnly? Now { get; set; }
 
     private TimeOnly _start;
     private TimeOnly _end;
+    private AgendaTimeline _timeline = AgendaTimeline.Build([]);
+    private int[] _firstRow = [];       // erste Rasterzeile je Segment
+    private int _rowCount;              // Anzahl Rasterzeilen ohne Header
 
     protected override void OnParametersSet()
     {
@@ -64,12 +101,118 @@ else
         _start = new TimeOnly(Sessions.Min(s => s.StartTime).Hour, 0);
         var last = Sessions.Max(s => s.EndTime);
         _end = last.Minute == 0 ? last : new TimeOnly(Math.Min(last.Hour + 1, 23), last.Hour >= 23 ? 59 : 0);
+
+        _timeline = AgendaTimeline.Build(Sessions, _start, _end);
+        _firstRow = new int[_timeline.Segments.Count];
+        _rowCount = 0;
+        for (var i = 0; i < _timeline.Segments.Count; i++)
+        {
+            _firstRow[i] = _rowCount + 2;  // Zeile 1 ist der Raum-Header.
+            _rowCount += SegmentRows(_timeline.Segments[i]);
+        }
     }
 
-    // Zeile 1 ist der Raum-Header.
-    private int Row(TimeOnly t) => (int)((t - _start).TotalMinutes / Slot) + 2;
+    // Programm-Segmente maßstabsgetreu in 5-Minuten-Zeilen, Pausen als genau eine Zeile.
+    private static int SegmentRows(TimelineSegment seg) =>
+        seg.IsGap ? 1 : Math.Max(1, (int)Math.Ceiling(seg.Duration.TotalMinutes / Slot));
 
-    private string GridStyle =>
-        $"grid-template-columns:64px repeat({Rooms.Count}, minmax(190px, 1fr));" +
-        $"grid-template-rows:48px repeat({(int)Math.Ceiling((_end - _start).TotalMinutes / Slot)}, {RowHeight}px);";
+    // Vorlesetext der Karte mit vollen Angaben (Titel, Zeit, Raum, Speaker, Track), weil Titel und Speaker
+    // auf der Karte gekürzt sein können und das aria-label den sichtbaren Inhalt überdeckt.
+    private static string SessionLabel(SessionDto s) =>
+        $"{s.Title}, {Format.Range(s.StartTime, s.EndTime)}, Raum {s.RoomName}" +
+        (s.Speakers.Count > 0 ? $", mit {string.Join(", ", s.Speakers.Select(x => x.Name))}" : "") +
+        (s.TrackName is not null ? $", Track {s.TrackName}" : "");
+
+    private static double Minutes(SessionDto s) => (s.EndTime - s.StartTime).TotalMinutes;
+
+    // Kompakte Karte für kurze Sessions (#7), Hervorhebung laufender Sessions, wenn der Tag heute ist (#6).
+    private string CardClass(SessionDto s) =>
+        (Minutes(s) <= CompactMaxMinutes ? "agenda-session agenda-session--compact" : "agenda-session") +
+        (Now is { } now && s.StartTime <= now && now < s.EndTime ? " agenda-session--live" : "");
+
+    // Zeile der Jetzt-Linie oder null, wenn "jetzt" außerhalb des angezeigten Zeitraums liegt.
+    private int? NowRow(TimeOnly now) => now >= _start && now < _end ? Row(now) : null;
+
+    // Minutengenauer Versatz innerhalb der 5-Minuten-Zeile; in einer gestauchten Pause (#2) bleibt die Linie oben.
+    private int NowOffset(TimeOnly now) =>
+        _timeline.IsInGap(now) ? 0 : (int)Math.Round(now.Minute % Slot / (double)Slot * RowHeight);
+
+    private static bool ShowAbstract(SessionDto s) =>
+        Minutes(s) >= AbstractMinMinutes && !string.IsNullOrWhiteSpace(s.Abstract);
+
+    private string DetailHref(SessionDto s) => $"/konferenzen/{Slug}/sessions/{s.Id}{LinkQuery}";
+
+    // Klick bzw. Enter öffnet die Quick-View. Strg/Cmd/Umschalt+Klick öffnet die Detailseite wie gewohnt
+    // in einem neuen Tab; Mittelklick und „Link in neuem Tab öffnen“ funktionieren ohnehin, da die Karte ein echter Link bleibt.
+    private async Task OpenQuickView(MouseEventArgs e, SessionDto s)
+    {
+        if (e.CtrlKey || e.MetaKey || e.ShiftKey)
+        {
+            // Synchron (WebAssembly = In-Process), damit der Aufruf noch als Nutzergeste gilt und kein Popup-Blocker greift.
+            try
+            {
+                if (JS is IJSInProcessRuntime js) js.InvokeVoid("open", DetailHref(s), "_blank", "noopener");
+            }
+            catch (JSException) { /* Neuer Tab nicht möglich – Karte bleibt einfach geschlossen. */ }
+            return;
+        }
+
+        var parameters = new DialogParameters<SessionQuickView>
+        {
+            { x => x.Session, s },
+            { x => x.Slug, Slug },
+        };
+        await DialogService.ShowAsync<SessionQuickView>(s.Title, parameters, QuickViewOptions);
+    }
+
+    private static readonly DialogOptions QuickViewOptions = new()
+    {
+        MaxWidth = MaxWidth.Small,
+        FullWidth = true,
+        CloseButton = true,
+        CloseOnNavigation = true,
+    };
+
+    // Rasterzeile zu einem Zeitpunkt: Zeiten in einer Pause landen auf deren Zeile,
+    // das Ende der Zeitachse auf der Zeile nach der letzten.
+    private int Row(TimeOnly t)
+    {
+        for (var i = 0; i < _timeline.Segments.Count; i++)
+        {
+            var seg = _timeline.Segments[i];
+            if (!seg.Contains(t)) continue;
+            return seg.IsGap ? _firstRow[i] : _firstRow[i] + (int)((t - seg.Start).TotalMinutes / Slot);
+        }
+        return t < _timeline.Start ? 2 : _rowCount + 2;
+    }
+
+    // Volle Stunden außerhalb von Pausen.
+    private IEnumerable<TimeOnly> HourMarks()
+    {
+        for (var h = _start.Hour; h < _end.Hour || (h == _end.Hour && _end.Minute > 0); h++)
+        {
+            var t = new TimeOnly(h, 0);
+            if (!_timeline.IsInGap(t)) yield return t;
+        }
+    }
+
+    // Stundenbeschriftung reicht bis zur nächsten vollen Stunde, höchstens bis zum Segmentende.
+    private int HourSpan(TimeOnly t)
+    {
+        var segEnd = _timeline.SegmentAt(t)?.End ?? _end;
+        var next = t.Hour < 23 ? new TimeOnly(t.Hour + 1, 0) : segEnd;
+        if (next > segEnd) next = segEnd;
+        return Math.Max(1, Row(next) - Row(t));
+    }
+
+    private string GridStyle
+    {
+        get
+        {
+            var rows = string.Join(" ", _timeline.Segments.Select(seg =>
+                seg.IsGap ? $"{GapHeight}px" : $"repeat({SegmentRows(seg)}, {RowHeight}px)"));
+            return $"grid-template-columns:64px repeat({Rooms.Count}, minmax(190px, 1fr));" +
+                   $"grid-template-rows:48px {rows};";
+        }
+    }
 }
