@@ -5,24 +5,29 @@
 
 <PageTitle>@(_agenda?.Conference.Name ?? "Agenda")</PageTitle>
 
-<PageState Loading="_agenda is null" Error="@_error">
+<PageState Loading="_agenda is null" Error="@_error" NotFound="_notFound" OnRetry="LoadAsync">
+    <Skeleton>
+        <MudSkeleton Width="160px" Class="mb-1" />
+        <header class="page-header">
+            <MudSkeleton Width="45%" Height="36px" />
+            <MudSkeleton Width="30%" />
+        </header>
+        <div class="agenda-toolbar">
+            <MudSkeleton SkeletonType="SkeletonType.Rectangle" Width="280px" Height="30px" Class="rounded" />
+        </div>
+        <MudSkeleton SkeletonType="SkeletonType.Rectangle" Height="420px" Class="rounded" />
+    </Skeleton>
+    <ChildContent>
     @{ var conf = _agenda!.Conference; }
-    <MudBreadcrumbs Items="_breadcrumbs" Class="pa-0 mb-1" />
-
-    <header class="agenda-header">
-        <MudText Typo="Typo.h5" Class="agenda-header-title">@conf.Name</MudText>
-        <div class="agenda-header-meta">
+    <PageHeader Title="@conf.Name" Breadcrumbs="_breadcrumbs" Description="@conf.Description">
+        <Meta>
             <span><MudIcon Icon="@Icons.Material.Outlined.Event" Size="Size.Small" />@Format.DateRange(conf.StartDate, conf.EndDate)</span>
             @if (conf.Location is not null)
             {
                 <span><MudIcon Icon="@Icons.Material.Outlined.Place" Size="Size.Small" />@conf.Location</span>
             }
-        </div>
-        @if (!string.IsNullOrWhiteSpace(conf.Description))
-        {
-            <MudText Typo="Typo.body2" Class="agenda-header-desc prewrap">@conf.Description</MudText>
-        }
-    </header>
+        </Meta>
+    </PageHeader>
 
     @* Eine Toolbar: Tage links, Track-Filter rechts. Die Auswahl steht in der URL (?tag=…&track=…). *@
     <div class="agenda-toolbar">
@@ -31,8 +36,8 @@
             {
                 var selected = day == _day;
                 <MudButton Size="Size.Small" Variant="@(selected ? Variant.Filled : Variant.Text)" Color="Color.Primary"
-                           DropShadow="false" role="tab" aria-selected="@(selected ? "true" : "false")"
-                           OnClick="() => SelectDay(day)">@Format.Day(day)</MudButton>
+                           DropShadow="false" role="tab" aria-selected="@(selected ? "true" : "false")" Class="agenda-day"
+                           OnClick="() => SelectDay(day)">@Format.DayShort(day)</MudButton>
             }
         </div>
 
@@ -45,7 +50,7 @@
                 @foreach (var t in _agenda.Tracks)
                 {
                     <MudChip T="string" Size="Size.Small" Variant="@(_trackFilter == t.Id ? Variant.Filled : Variant.Outlined)"
-                             Style="@($"border-color:{t.Color};" + (_trackFilter == t.Id ? $"background:{t.Color};color:#fff" : $"color:{t.Color}"))"
+                             Style="@TrackChipStyle(t)"
                              role="button" aria-pressed="@(_trackFilter == t.Id ? "true" : "false")"
                              OnClick="() => SelectTrack(t.Id)">@t.Name</MudChip>
                 }
@@ -56,7 +61,15 @@
     @* Kündigt Tag- und Filterwechsel für Screenreader an. *@
     <span class="sr-only" role="status" aria-live="polite">@FilterAnnouncement</span>
 
-    <AgendaGrid Sessions="SessionsFor(_day)" Rooms="_agenda.Rooms" Slug="@Slug" MarkSessionsForAll="_trackFilter is not null" />
+    @* Unter 768 px chronologische Liste, ab 768 px Raster. Umschaltung rein per CSS-Media-Query (app.css). *@
+    @{ var daySessions = SessionsFor(_day); var markForAll = _trackFilter is not null; }
+    <div class="agenda-view-list">
+        <AgendaList Sessions="daySessions" Rooms="_agenda.Rooms" Slug="@Slug" MarkSessionsForAll="markForAll" />
+    </div>
+    <div class="agenda-view-grid">
+        <AgendaGrid Sessions="daySessions" Rooms="_agenda.Rooms" Slug="@Slug" MarkSessionsForAll="markForAll" />
+    </div>
+    </ChildContent>
 </PageState>
 
 @code {
@@ -65,13 +78,14 @@
     [Parameter] public string Slug { get; set; } = "";
 
     // Filterzustand kommt aus der URL: teilbar und übersteht einen Reload.
-    // Weitere Parameter (z. B. q, ansicht) lassen sich hier ergänzen; UpdateQuery lässt fremde Parameter unangetastet.
+    // Weitere Parameter (z. B. q) lassen sich hier ergänzen; UpdateQuery lässt fremde Parameter unangetastet.
     [SupplyParameterFromQuery(Name = "tag")] public string? TagParam { get; set; }
     [SupplyParameterFromQuery(Name = "track")] public int? TrackParam { get; set; }
 
     private AgendaDto? _agenda;
     private string? _loadedSlug;
     private string? _error;
+    private bool _notFound;
     private int? _trackFilter;
     private DateOnly _day;
     private List<BreadcrumbItem> _breadcrumbs = [];
@@ -79,23 +93,35 @@
     protected override async Task OnParametersSetAsync()
     {
         // Nur bei einer anderen Konferenz neu laden; reine Query-Änderungen (Filterwechsel) brauchen keinen API-Aufruf.
-        if (Slug != _loadedSlug)
-        {
-            _agenda = null;
-            _error = null;
-            _loadedSlug = Slug;
-            try
-            {
-                _agenda = await Api.GetAgendaAsync(Slug);
-                _breadcrumbs = [new("Konferenzen", "/"), new(_agenda.Conference.Name, null, disabled: true)];
-            }
-            catch (ApiException ex) { _error = ex.IsNotFound ? "Diese Konferenz gibt es nicht." : ex.Message; }
-        }
+        if (Slug != _loadedSlug) await LoadAsync();
+        else ApplyQuery();
+    }
 
+    // Lädt die Agenda (auch für „Erneut versuchen“ aus PageState) und wendet danach die URL-Auswahl an.
+    private async Task LoadAsync()
+    {
+        _agenda = null;
+        _error = null;
+        _notFound = false;
+        _loadedSlug = Slug;
+        try
+        {
+            _agenda = await Api.GetAgendaAsync(Slug);
+            _breadcrumbs = [new("Konferenzen", "/"), new(_agenda.Conference.Name, null, disabled: true)];
+            ApplyQuery();
+        }
+        catch (ApiException ex)
+        {
+            _notFound = ex.IsNotFound;
+            _error = ex.IsNotFound ? "Diese Konferenz gibt es nicht." : ex.Message;
+        }
+    }
+
+    // Ungültige Werte oder Tage außerhalb der Konferenz fallen auf die Standardauswahl zurück.
+    private void ApplyQuery()
+    {
         if (_agenda is null) return;
         var conf = _agenda.Conference;
-
-        // Ungültige Werte oder Tage außerhalb der Konferenz fallen auf die Standardauswahl zurück.
         _day = DateOnly.TryParseExact(TagParam, DayFormat, CultureInfo.InvariantCulture, DateTimeStyles.None, out var d)
                && d >= conf.StartDate && d <= conf.EndDate
             ? d
@@ -119,10 +145,6 @@
         }), replace: true);
     }
 
-    // Sessions ohne Track (Keynote, Closing Panel …) gelten für alle und bleiben bei aktivem Track-Filter sichtbar.
-    private List<SessionDto> SessionsFor(DateOnly day) =>
-        _agenda!.Sessions.Where(s => s.Day == day && (_trackFilter is null || s.TrackId is null || s.TrackId == _trackFilter)).ToList();
-
     private string FilterAnnouncement
     {
         get
@@ -133,4 +155,14 @@
                 : $"Agenda für {Format.Day(_day)}, Track-Filter {track} aktiv, Sessions für alle bleiben sichtbar";
         }
     }
+
+    // Track-Farbe nur für Rand/Fläche; Text in Textfarbe bzw. auf aktiver Fläche Schwarz/Weiß je nach Luminanz.
+    private string TrackChipStyle(TrackDto t) =>
+        _trackFilter == t.Id
+            ? $"border-color:{t.Color};background:{t.Color};color:{ColorContrast.TextOn(t.Color)}"
+            : $"border-color:{t.Color};color:var(--mud-palette-text-primary)";
+
+    // Sessions ohne Track (Keynote, Closing Panel …) gelten für alle und bleiben bei aktivem Track-Filter sichtbar.
+    private List<SessionDto> SessionsFor(DateOnly day) =>
+        _agenda!.Sessions.Where(s => s.Day == day && (_trackFilter is null || s.TrackId is null || s.TrackId == _trackFilter)).ToList();
 }
