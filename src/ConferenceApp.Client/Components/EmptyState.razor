@@ -1,0 +1,22 @@
+@* Leerzustand: Icon, kurzer Satz und optional eine Aktion (nur im Admin-Bereich). *@
+<div class="state-panel">
+    <MudIcon Icon="@Icon" Class="state-panel-icon" />
+    <MudText Typo="Typo.h6">@Title</MudText>
+    @if (Text is not null)
+    {
+        <MudText Typo="Typo.body1" Color="Color.Secondary">@Text</MudText>
+    }
+    @if (ChildContent is not null)
+    {
+        <div class="mt-4">@ChildContent</div>
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired] public string Icon { get; set; } = "";
+    [Parameter, EditorRequired] public string Title { get; set; } = "";
+    [Parameter] public string? Text { get; set; }
+
+    /// <summary>Optionale Aktion, z. B. „Neue Konferenz“.</summary>
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+}
