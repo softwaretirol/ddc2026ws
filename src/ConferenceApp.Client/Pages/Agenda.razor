@@ -1,5 +1,5 @@
 @page "/konferenzen/{Slug}"
-@inject ApiClient Api
+@inject AgendaCache AgendaCache
 
 <PageTitle>@(_agenda?.Conference.Name ?? "Agenda")</PageTitle>
 
@@ -49,7 +49,7 @@
         }
     </div>
 
-    <AgendaGrid Sessions="SessionsFor(_day)" Rooms="_agenda.Rooms" Slug="@Slug" />
+    <AgendaGrid Sessions="SessionsFor(_day)" Rooms="_agenda.Rooms" Slug="@Slug" LinkQuery="@DetailQuery" />
 </PageState>
 
 @code {
@@ -67,7 +67,7 @@
         _error = null;
         try
         {
-            _agenda = await Api.GetAgendaAsync(Slug);
+            _agenda = await AgendaCache.GetAsync(Slug);
             _day = _agenda.Conference.StartDate;
             _breadcrumbs = [new("Konferenzen", "/"), new(_agenda.Conference.Name, null, disabled: true)];
         }
@@ -76,4 +76,9 @@
 
     private List<SessionDto> SessionsFor(DateOnly day) =>
         _agenda!.Sessions.Where(s => s.Day == day && (_trackFilter is null || s.TrackId == _trackFilter)).ToList();
+
+    // Aktueller Tag/Track-Filter wird an die Detail-Links gehängt, damit „← Zur Agenda“
+    // dorthin zurückführt (Parameternamen wie in #3: tag=yyyy-MM-dd, track=Id).
+    private string DetailQuery =>
+        $"?tag={_day:yyyy-MM-dd}" + (_trackFilter is { } t ? $"&track={t}" : "");
 }

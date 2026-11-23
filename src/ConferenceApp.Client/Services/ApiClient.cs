@@ -14,6 +14,9 @@ public class ApiException(string message, HttpStatusCode status) : Exception(mes
 /// <summary>Typisierter Zugriff auf die Konferenz-API.</summary>
 public class ApiClient(HttpClient http)
 {
+    /// <summary>Wird nach jedem erfolgreichen Schreibzugriff ausgelöst (z. B. um Caches zu leeren).</summary>
+    public event Action? DataChanged;
+
     // Konferenzen
     public Task<List<ConferenceDto>> GetConferencesAsync() => GetAsync<List<ConferenceDto>>("api/conferences");
     public Task<ConferenceDto> GetConferenceAsync(int id) => GetAsync<ConferenceDto>($"api/conferences/{id}");
@@ -60,6 +63,7 @@ public class ApiClient(HttpClient http)
     {
         using var response = await SafeAsync(() => http.SendAsync(new HttpRequestMessage(method, url) { Content = JsonContent.Create(body) }));
         await EnsureSuccessAsync(response);
+        DataChanged?.Invoke();
         return (await response.Content.ReadFromJsonAsync<T>())!;
     }
 
@@ -67,6 +71,7 @@ public class ApiClient(HttpClient http)
     {
         using var response = await SafeAsync(() => http.DeleteAsync(url));
         await EnsureSuccessAsync(response);
+        DataChanged?.Invoke();
     }
 
     private static async Task<HttpResponseMessage> SafeAsync(Func<Task<HttpResponseMessage>> call)

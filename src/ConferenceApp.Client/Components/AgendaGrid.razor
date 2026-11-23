@@ -27,7 +27,7 @@ else
             @foreach (var s in Sessions)
             {
                 var col = Rooms.FindIndex(r => r.Id == s.RoomId) + 2;
-                <a class="agenda-session" href="@($"/konferenzen/{Slug}/sessions/{s.Id}")"
+                <a class="agenda-session" href="@($"/konferenzen/{Slug}/sessions/{s.Id}{LinkQuery}")"
                    style="grid-column:@col;grid-row:@(Row(s.StartTime)) / @(Row(s.EndTime));border-left-color:@(s.TrackColor ?? "#9E9E9E")">
                     <span class="agenda-time">@Format.Range(s.StartTime, s.EndTime)</span>
                     <span class="agenda-title">@s.Title</span>
@@ -52,6 +52,8 @@ else
     [Parameter, EditorRequired] public List<SessionDto> Sessions { get; set; } = [];
     [Parameter, EditorRequired] public List<RoomDto> Rooms { get; set; } = [];
     [Parameter, EditorRequired] public string Slug { get; set; } = "";
+    /// <summary>Optionaler Query-String (inkl. „?“) für die Session-Links, z. B. der aktuelle Tag/Filter.</summary>
+    [Parameter] public string? LinkQuery { get; set; }
 
     private TimeOnly _start;
     private TimeOnly _end;
