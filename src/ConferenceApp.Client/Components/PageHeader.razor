@@ -1,0 +1,63 @@
+@* Einheitlicher Seitenkopf: Breadcrumb, h1-Titel, Meta-Zeile, Aktionsbereich rechts, optionale Beschreibung. *@
+<header class="@HeaderClass">
+    @if (Breadcrumbs is { Count: > 0 })
+    {
+        @* Eigene Breadcrumbs-Komponente (#4): letzter Eintrag ist Text mit aria-current statt fokussierbarem Link. *@
+        <ConferenceApp.Client.Components.Breadcrumbs Items="Breadcrumbs" Class="page-header-breadcrumbs" />
+    }
+
+    <div class="page-header-row">
+        @if (Leading is not null)
+        {
+            <div class="page-header-leading">@Leading</div>
+        }
+        <div class="page-header-text">
+            <MudText Typo="Typo.h1" Class="page-header-title">@Title</MudText>
+            @if (Meta is not null)
+            {
+                <div class="page-header-meta">@Meta</div>
+            }
+        </div>
+        @if (Actions is not null)
+        {
+            <div class="page-header-actions">@Actions</div>
+        }
+    </div>
+
+    @if (!string.IsNullOrWhiteSpace(Description))
+    {
+        <MudText Typo="Typo.body2" Class="page-header-desc prewrap">@Description</MudText>
+    }
+    @if (ChildContent is not null)
+    {
+        <div class="page-header-desc">@ChildContent</div>
+    }
+</header>
+
+@code {
+    /// <summary>Seitentitel, wird als &lt;h1&gt; gerendert.</summary>
+    [Parameter, EditorRequired] public string Title { get; set; } = "";
+
+    /// <summary>Optionaler Breadcrumb über dem Titel.</summary>
+    [Parameter] public IReadOnlyList<BreadcrumbItem>? Breadcrumbs { get; set; }
+
+    /// <summary>Untertitel bzw. Meta-Angaben (Datum, Ort, Firma …) unter dem Titel.</summary>
+    [Parameter] public RenderFragment? Meta { get; set; }
+
+    /// <summary>Aktionsbereich rechts neben dem Titel (bricht mobil unter den Titel um).</summary>
+    [Parameter] public RenderFragment? Actions { get; set; }
+
+    /// <summary>Optionales Element links vom Titel, z. B. ein Avatar.</summary>
+    [Parameter] public RenderFragment? Leading { get; set; }
+
+    /// <summary>Optionaler Beschreibungstext unter dem Kopf (Zeilenumbrüche bleiben erhalten).</summary>
+    [Parameter] public string? Description { get; set; }
+
+    /// <summary>Optionaler freier Inhalt unter dem Kopf.</summary>
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+
+    /// <summary>Kompakter Titel (1,5 rem) für Verwaltungsseiten.</summary>
+    [Parameter] public bool Dense { get; set; }
+
+    private string HeaderClass => Dense ? "page-header page-header-dense" : "page-header";
+}

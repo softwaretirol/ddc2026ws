@@ -43,5 +43,5 @@
 
     private string SessionUrl(SessionDto s) => $"/konferenzen/{Slug}/sessions/{s.Id}";
 
-    private static string LinkStyle(SessionDto s) => $"border-left-color:{s.TrackColor ?? "#9E9E9E"}";
+    private static string LinkStyle(SessionDto s) => $"border-left-color:{s.TrackColor ?? "var(--mud-palette-gray-default)"}";
 }
