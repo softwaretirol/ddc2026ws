@@ -1,0 +1,56 @@
+﻿@inherits LayoutComponentBase
+@implements IDisposable
+@inject NavigationManager Navigation
+
+<MudLayout>
+    <MudAppBar Elevation="1">
+        @* Mobil: Menü-Button mit temporärem Drawer; ab md stehen die Links direkt in der Kopfleiste. *@
+        <MudIconButton Icon="@Icons.Material.Filled.Menu" Color="Color.Inherit" Edge="Edge.Start" Class="d-flex d-md-none mr-2"
+                       OnClick="ToggleDrawer" aria-label="Menü öffnen" />
+        <MudLink Href="/" Color="Color.Inherit" Underline="Underline.None" Typo="Typo.h6">ConferenceApp</MudLink>
+        <MudSpacer />
+        <nav class="d-none d-md-flex align-center gap-1" aria-label="Hauptnavigation">
+            <MudButton Href="/" Color="Color.Inherit" StartIcon="@Icons.Material.Filled.Event">Konferenzen</MudButton>
+            <MudButton Href="/speaker" Color="Color.Inherit" StartIcon="@Icons.Material.Filled.RecordVoiceOver">Speaker</MudButton>
+        </nav>
+    </MudAppBar>
+
+    <MudDrawer @bind-Open="_drawerOpen" Variant="DrawerVariant.Temporary" Elevation="2">
+        <MudNavMenu Class="pt-2">
+            <MudNavLink Href="/" Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.Event">Konferenzen</MudNavLink>
+            <MudNavLink Href="/speaker" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.RecordVoiceOver">Speaker</MudNavLink>
+        </MudNavMenu>
+    </MudDrawer>
+
+    <MudMainContent Class="public-main">
+        <MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="py-6 public-content">
+            @Body
+        </MudContainer>
+
+        <footer class="public-footer">
+            <MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="d-flex align-center">
+                <span>ConferenceApp</span>
+                <MudSpacer />
+                <MudLink Href="/admin" Color="Color.Inherit" Typo="Typo.body2">Verwaltung</MudLink>
+            </MudContainer>
+        </footer>
+    </MudMainContent>
+</MudLayout>
+
+@code {
+    private bool _drawerOpen;
+
+    protected override void OnInitialized() => Navigation.LocationChanged += OnLocationChanged;
+
+    private void ToggleDrawer() => _drawerOpen = !_drawerOpen;
+
+    // Temporärer Drawer schließt sich nach einem Klick auf einen Link.
+    private void OnLocationChanged(object? sender, LocationChangedEventArgs e)
+    {
+        if (!_drawerOpen) return;
+        _drawerOpen = false;
+        InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose() => Navigation.LocationChanged -= OnLocationChanged;
+}

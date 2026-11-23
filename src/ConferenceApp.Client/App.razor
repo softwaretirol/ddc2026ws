@@ -1,6 +1,19 @@
-﻿<Router AppAssembly="@typeof(App).Assembly" NotFoundPage="typeof(Pages.NotFound)">
+﻿@* Provider und Theme liegen hier, damit PublicLayout und AdminLayout sie gemeinsam nutzen. *@
+<MudThemeProvider Theme="_theme" />
+<MudPopoverProvider />
+<MudDialogProvider CloseOnEscapeKey="true" />
+<MudSnackbarProvider />
+
+<Router AppAssembly="@typeof(App).Assembly" NotFoundPage="typeof(Pages.NotFound)">
     <Found Context="routeData">
-        <RouteView RouteData="@routeData" DefaultLayout="@typeof(MainLayout)"/>
+        <RouteView RouteData="@routeData" DefaultLayout="@typeof(PublicLayout)"/>
         <FocusOnNavigate RouteData="@routeData" Selector="h1" />
     </Found>
 </Router>
+
+@code {
+    private readonly MudTheme _theme = new()
+    {
+        PaletteLight = new PaletteLight { Primary = "#3949AB", Secondary = "#616161", AppbarBackground = "#283593" },
+    };
+}
