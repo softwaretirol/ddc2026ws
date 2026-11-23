@@ -4,7 +4,7 @@
     <TitleContent>
         @if (Session.TrackName is not null)
         {
-            <MudText Typo="Typo.overline" Style="@($"color:{Session.TrackColor}")">@Session.TrackName</MudText>
+            <MudText Typo="Typo.overline"><span class="color-dot" style="background:@Session.TrackColor" aria-hidden="true"></span>@Session.TrackName</MudText>
         }
         <MudText Typo="Typo.h6">@Session.Title</MudText>
     </TitleContent>
