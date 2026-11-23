@@ -23,8 +23,8 @@ public static class SeedData
         };
 
         var dotnet = new Track { Name = ".NET", Color = "#512BD4" };
-        var web = new Track { Name = "Web & Frontend", Color = "#E65100" };
-        var cloud = new Track { Name = "Cloud & DevOps", Color = "#00897B" };
+        var web = new Track { Name = "Web & Frontend", Color = "#BF360C" };
+        var cloud = new Track { Name = "Cloud & DevOps", Color = "#00796B" };
         conf.Tracks.AddRange([dotnet, web, cloud]);
 
         var saal = new Room { Name = "Saal Tirol", Capacity = 400 };

@@ -1,0 +1,87 @@
+@* Mobile Agenda: chronologische Liste, gruppiert nach Startzeit. Parallele Sessions stehen untereinander mit Raumangabe.
+   Pausen ab 30 Minuten (AgendaTimeline, wie im Raster) erscheinen als eigene Zeile zwischen den Zeitslots. *@
+
+@if (Sessions.Count == 0)
+{
+    <MudAlert Severity="Severity.Info" Class="my-4">Für diesen Tag sind (noch) keine Sessions geplant.</MudAlert>
+}
+else
+{
+    <div class="agenda-list">
+        @foreach (var entry in _entries)
+        {
+            if (entry.Gap is { } gap)
+            {
+                <div class="agenda-gap agenda-list-gap" role="note">@gap.Label</div>
+                continue;
+            }
+
+            var slot = entry.Slot!;
+            <section class="agenda-slot">
+                <h2 class="agenda-slot-time">@Format.Time(slot.Key)</h2>
+                <ul class="agenda-slot-items">
+                    @foreach (var s in slot)
+                    {
+                        <li>
+                            <a class="agenda-list-card" href="@($"/konferenzen/{Slug}/sessions/{s.Id}{LinkQuery}")"
+                               style="border-left-color:@(s.TrackColor ?? "var(--mud-palette-gray-default)")">
+                                <span class="agenda-list-meta">
+                                    <span class="agenda-list-room">@s.RoomName</span>
+                                    <span class="agenda-time">@Format.Range(s.StartTime, s.EndTime)</span>
+                                </span>
+                                <span class="agenda-title">@s.Title</span>
+                                @if (s.Speakers.Count > 0)
+                                {
+                                    <span class="agenda-speakers">@string.Join(", ", s.Speakers.Select(x => x.Name))</span>
+                                }
+                                @if (s.TrackName is not null)
+                                {
+                                    <span class="agenda-track"><span class="color-dot" style="background:@s.TrackColor" aria-hidden="true"></span>@s.TrackName</span>
+                                }
+                                else if (MarkSessionsForAll)
+                                {
+                                    <span class="agenda-track agenda-track-all">Für alle</span>
+                                }
+                            </a>
+                        </li>
+                    }
+                </ul>
+            </section>
+        }
+    </div>
+}
+
+@code {
+    [Parameter, EditorRequired] public List<SessionDto> Sessions { get; set; } = [];
+    [Parameter, EditorRequired] public List<RoomDto> Rooms { get; set; } = [];
+    [Parameter, EditorRequired] public string Slug { get; set; } = "";
+    /// <summary>Optionaler Query-String (inkl. „?“) für die Session-Links, z. B. der aktuelle Tag/Filter.</summary>
+    [Parameter] public string? LinkQuery { get; set; }
+    /// <summary>Sessions ohne Track als „Für alle“ kennzeichnen (z. B. bei aktivem Track-Filter).</summary>
+    [Parameter] public bool MarkSessionsForAll { get; set; }
+
+    // Ein Listeneintrag ist entweder ein Zeitslot oder eine Pause.
+    private sealed record Entry(TimeOnly Time, IGrouping<TimeOnly, SessionDto>? Slot, TimelineSegment? Gap);
+
+    private List<Entry> _entries = [];
+
+    protected override void OnParametersSet()
+    {
+        // Innerhalb eines Zeitslots in derselben Reihenfolge wie die Raumspalten des Rasters.
+        var roomOrder = Rooms.Select((r, i) => (r.Id, i)).ToDictionary(x => x.Id, x => x.i);
+        var slots = Sessions
+            .OrderBy(s => s.StartTime)
+            .ThenBy(s => roomOrder.GetValueOrDefault(s.RoomId, int.MaxValue))
+            .ThenBy(s => s.EndTime)
+            .GroupBy(s => s.StartTime)
+            .Select(g => new Entry(g.Key, g, null));
+
+        // Dieselben Pausen wie im Raster; eine Pause steht vor dem Slot, der zu ihrem Ende beginnt.
+        var gaps = AgendaTimeline.Build(Sessions).Gaps.Select(g => new Entry(g.Start, null, g));
+
+        _entries = slots.Concat(gaps)
+            .OrderBy(e => e.Time)
+            .ThenBy(e => e.Gap is null ? 1 : 0)
+            .ToList();
+    }
+}

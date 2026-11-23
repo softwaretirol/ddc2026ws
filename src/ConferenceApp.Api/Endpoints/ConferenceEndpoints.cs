@@ -39,6 +39,36 @@ public static class ConferenceEndpoints
                 conf.Sessions.OrderBy(s => s.Day).ThenBy(s => s.StartTime).ThenBy(s => s.RoomId).Select(s => s.ToDto()).ToList()));
         });
 
+        // Abonnierbarer Kalender (RFC 5545) mit allen Sessions, optional auf einen Track gefiltert.
+        group.MapGet("/{slug}/agenda.ics", async Task<IResult> (string slug, int? track, ConferenceDbContext db, HttpContext http) =>
+        {
+            var conf = await db.Conferences.AsNoTracking().FirstOrDefaultAsync(c => c.Slug == slug);
+            if (conf is null) return TypedResults.NotFound();
+
+            var query = db.Sessions.AsNoTracking()
+                .Include(s => s.Room)
+                .Include(s => s.Track)
+                .Include(s => s.Speakers)
+                .AsSplitQuery()
+                .Where(s => s.ConferenceId == conf.Id);
+            string? trackName = null;
+            if (track is { } trackId)
+            {
+                trackName = await db.Tracks.Where(t => t.Id == trackId && t.ConferenceId == conf.Id).Select(t => t.Name).FirstOrDefaultAsync();
+                if (trackName is null) return TypedResults.NotFound();
+                query = query.Where(s => s.TrackId == trackId);
+            }
+
+            var sessions = (await query.OrderBy(s => s.Day).ThenBy(s => s.StartTime).ThenBy(s => s.RoomId).ToListAsync())
+                .Select(s => s.ToDto());
+            var calendarName = trackName is null ? conf.Name : $"{conf.Name} – {trackName}";
+            var ics = IcsBuilder.Build(calendarName, conf.ToDto(), sessions);
+
+            var fileName = IcsBuilder.FileName(trackName is null ? conf.Slug : $"{conf.Slug}-{trackName}");
+            http.Response.Headers.ContentDisposition = $"inline; filename=\"{fileName}\"";
+            return TypedResults.Text(ics, IcsBuilder.ContentType + "; charset=utf-8");
+        });
+
         group.MapPost("/", async Task<IResult> (ConferenceRequest req, ConferenceDbContext db) =>
         {
             if (await db.Conferences.AnyAsync(c => c.Slug == req.Slug))
