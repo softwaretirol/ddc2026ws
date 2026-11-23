@@ -182,6 +182,7 @@ html, body {
 
 .agenda-days, .agenda-tracks { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
 .agenda-tracks .mud-chip { margin: 0; }
+.agenda-search { flex: 1 1 220px; max-width: 320px; }
 
 /* Tagesbuttons bleiben einzeilig; bei vielen Tagen horizontal scrollen statt umbrechen. */
 .agenda-days { flex-wrap: nowrap; max-width: 100%; overflow-x: auto; }
