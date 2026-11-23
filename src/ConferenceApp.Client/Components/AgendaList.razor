@@ -1,0 +1,60 @@
+@* Mobile Agenda: chronologische Liste, gruppiert nach Startzeit. Parallele Sessions stehen untereinander mit Raumangabe. *@
+
+@if (Sessions.Count == 0)
+{
+    <MudAlert Severity="Severity.Info" Class="my-4">Für diesen Tag sind (noch) keine Sessions geplant.</MudAlert>
+}
+else
+{
+    <div class="agenda-list">
+        @foreach (var slot in _slots)
+        {
+            <section class="agenda-slot">
+                <h2 class="agenda-slot-time">@Format.Time(slot.Key)</h2>
+                <ul class="agenda-slot-items">
+                    @foreach (var s in slot)
+                    {
+                        <li>
+                            <a class="agenda-list-card" href="@($"/konferenzen/{Slug}/sessions/{s.Id}")"
+                               style="border-left-color:@(s.TrackColor ?? "#9E9E9E")">
+                                <span class="agenda-list-meta">
+                                    <span class="agenda-list-room">@s.RoomName</span>
+                                    <span class="agenda-time">@Format.Range(s.StartTime, s.EndTime)</span>
+                                </span>
+                                <span class="agenda-title">@s.Title</span>
+                                @if (s.Speakers.Count > 0)
+                                {
+                                    <span class="agenda-speakers">@string.Join(", ", s.Speakers.Select(x => x.Name))</span>
+                                }
+                                @if (s.TrackName is not null)
+                                {
+                                    <span class="agenda-track" style="color:@s.TrackColor">@s.TrackName</span>
+                                }
+                            </a>
+                        </li>
+                    }
+                </ul>
+            </section>
+        }
+    </div>
+}
+
+@code {
+    [Parameter, EditorRequired] public List<SessionDto> Sessions { get; set; } = [];
+    [Parameter, EditorRequired] public List<RoomDto> Rooms { get; set; } = [];
+    [Parameter, EditorRequired] public string Slug { get; set; } = "";
+
+    private List<IGrouping<TimeOnly, SessionDto>> _slots = [];
+
+    protected override void OnParametersSet()
+    {
+        // Innerhalb eines Zeitslots in derselben Reihenfolge wie die Raumspalten des Rasters.
+        var roomOrder = Rooms.Select((r, i) => (r.Id, i)).ToDictionary(x => x.Id, x => x.i);
+        _slots = Sessions
+            .OrderBy(s => s.StartTime)
+            .ThenBy(s => roomOrder.GetValueOrDefault(s.RoomId, int.MaxValue))
+            .ThenBy(s => s.EndTime)
+            .GroupBy(s => s.StartTime)
+            .ToList();
+    }
+}

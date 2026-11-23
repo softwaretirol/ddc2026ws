@@ -45,7 +45,17 @@ html, body {
     min-width: max-content;
 }
 
-.agenda-corner { grid-row: 1; grid-column: 1; }
+/* Zeitspalte bleibt beim seitlichen Scrollen stehen; Hintergrund + Schatten decken
+   die darunter durchlaufenden Sessions inkl. Spaltenabstand ab. */
+.agenda-corner,
+.agenda-hour {
+    position: sticky;
+    left: 0;
+    background: var(--mud-palette-background);
+    box-shadow: 8px 0 0 var(--mud-palette-background);
+}
+
+.agenda-corner { grid-row: 1; grid-column: 1; z-index: 3; }
 
 .agenda-room {
     display: flex;
@@ -69,6 +79,7 @@ html, body {
     text-align: right;
     padding-right: 6px;
     transform: translateY(-.55em);
+    z-index: 2;
 }
 
 .agenda-line {
@@ -104,6 +115,68 @@ html, body {
 .agenda-title { font-weight: 500; line-height: 1.25; }
 .agenda-speakers { font-size: .8rem; }
 .agenda-track { font-size: .72rem; font-weight: 500; text-transform: uppercase; letter-spacing: .03em; }
+
+/* ---------- Agenda-Liste (mobil) ---------- */
+.agenda-list { display: flex; flex-direction: column; gap: 12px; }
+
+/* Sticky Zeitkopf direkt unter der fixierten App-Bar (unter 600 px ist sie 7/8 hoch, siehe MudBlazor). */
+.agenda-slot-time {
+    position: sticky;
+    top: calc(var(--mud-appbar-height) - var(--mud-appbar-height) / 8);
+    z-index: 2;
+    margin: 0 0 6px;
+    padding: 6px 0;
+    font-size: 1rem;
+    font-weight: 500;
+    background: var(--mud-palette-background);
+    border-bottom: 1px solid var(--mud-palette-lines-default);
+}
+
+@media (min-width: 600px) {
+    .agenda-slot-time { top: var(--mud-appbar-height); }
+}
+
+.agenda-slot-items {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.agenda-list-card {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+    padding: 8px 10px;
+    background: var(--mud-palette-surface);
+    border: 1px solid var(--mud-palette-lines-default);
+    border-left: 5px solid #9E9E9E;
+    border-radius: 6px;
+    color: inherit;
+    text-decoration: none;
+    overflow-wrap: anywhere;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, .06);
+}
+
+.agenda-list-meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0 8px;
+}
+
+.agenda-list-room { font-size: .8rem; font-weight: 500; }
+
+/* ---------- Umschaltung Liste/Raster ---------- */
+.agenda-view-grid { display: none; }
+
+@media (min-width: 768px) {
+    .agenda-view-list { display: none; }
+    .agenda-view-grid { display: block; }
+}
 
 /* ---------- Diverses ---------- */
 .color-dot {
