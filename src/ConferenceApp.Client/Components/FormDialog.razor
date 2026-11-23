@@ -1,9 +1,20 @@
 @typeparam TModel
-@* Gemeinsamer Rahmen für alle Bearbeiten-Dialoge: Validierung, Speichern über die API, Fehleranzeige im Dialog. *@
+@using System.Reflection
+@using System.Text.Json
+@inject IDialogService Dialogs
+@* Gemeinsamer Rahmen für alle Bearbeiten-Dialoge: Validierung, Speichern über die API, Feldfehler der API am Feld,
+   Rückfrage beim Schließen mit ungespeicherten Änderungen. *@
 
-<EditForm Model="Model" OnValidSubmit="SubmitAsync">
+<EditForm EditContext="_editContext" OnValidSubmit="SubmitAsync">
     <DataAnnotationsValidator />
-    <MudDialog>
+    <MudDialog OnKeyDown="OnKeyDownAsync" OnBackdropClick="RequestCloseAsync">
+        <TitleContent>
+            <div class="d-flex align-center gap-2">
+                <MudText Typo="Typo.h6" Class="flex-grow-1">@Dialog.Title</MudText>
+                <MudIconButton Icon="@Icons.Material.Filled.Close" Size="Size.Small" aria-label="Schließen"
+                               OnClick="RequestCloseAsync" Disabled="_saving" />
+            </div>
+        </TitleContent>
         <DialogContent>
             @if (_error is not null)
             {
@@ -14,7 +25,7 @@
             </MudStack>
         </DialogContent>
         <DialogActions>
-            <MudButton OnClick="() => Dialog.Cancel()" Disabled="_saving">Abbrechen</MudButton>
+            <MudButton OnClick="RequestCloseAsync" Disabled="_saving">Abbrechen</MudButton>
             <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary" Disabled="_saving">
                 @if (_saving) { <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" /> }
                 Speichern
@@ -30,8 +41,28 @@
     [Parameter, EditorRequired] public Func<TModel, Task> OnSave { get; set; } = default!;
     [Parameter] public RenderFragment? ChildContent { get; set; }
 
+    private EditContext _editContext = default!;
+    private ValidationMessageStore _serverErrors = default!;
+    private string _snapshot = "";
     private bool _saving;
+    private bool _confirming;
     private string? _error;
+
+    protected override void OnParametersSet()
+    {
+        if (_editContext is not null && ReferenceEquals(_editContext.Model, Model)) return;
+
+        _editContext = new EditContext(Model!);
+        _serverErrors = new ValidationMessageStore(_editContext);
+        // Feldfehler der API gelten nur bis zur nächsten Änderung des Felds bzw. bis zum nächsten Speichern.
+        _editContext.OnFieldChanged += (_, e) => _serverErrors.Clear(e.FieldIdentifier);
+        _editContext.OnValidationRequested += (_, _) => _serverErrors.Clear();
+        _snapshot = Snapshot();
+    }
+
+    private string Snapshot() => JsonSerializer.Serialize(Model);
+
+    private bool IsDirty => Snapshot() != _snapshot;
 
     private async Task SubmitAsync()
     {
@@ -44,11 +75,56 @@
         }
         catch (ApiException ex)
         {
-            _error = ex.Message;
+            ShowErrors(ex);
         }
         finally
         {
             _saving = false;
         }
+    }
+
+    /// <summary>Feldfehler an die passenden Felder hängen; alles, was keinem Feld zuzuordnen ist, oben anzeigen.</summary>
+    private void ShowErrors(ApiException ex)
+    {
+        _serverErrors.Clear();
+        var general = new List<string>();
+        foreach (var (key, messages) in ex.Errors)
+        {
+            // Die API liefert PascalCase ("Slug"); verschachtelte Schlüssel wie "Links[0]" dem Listenfeld zuordnen.
+            var name = key.Split('.', '[')[0];
+            var property = name.Length == 0 ? null
+                : typeof(TModel).GetProperty(name, BindingFlags.Public | BindingFlags.Instance | BindingFlags.IgnoreCase);
+            if (property is null) general.AddRange(messages);
+            else _serverErrors.Add(new FieldIdentifier(Model!, property.Name), messages);
+        }
+
+        _error = general.Count > 0 ? string.Join(" ", general)
+            : ex.Errors.Count > 0 ? null
+            : ex.Message;
+        _editContext.NotifyValidationStateChanged();
+    }
+
+    private async Task OnKeyDownAsync(KeyboardEventArgs e)
+    {
+        if (e.Key == "Escape") await RequestCloseAsync();
+    }
+
+    /// <summary>Schließen über X, Escape, Hintergrund oder „Abbrechen“: bei ungespeicherten Änderungen nachfragen.</summary>
+    private async Task RequestCloseAsync()
+    {
+        if (_saving || _confirming) return;
+        if (IsDirty)
+        {
+            _confirming = true;
+            try
+            {
+                if (!await Dialogs.ConfirmDiscardAsync()) return;
+            }
+            finally
+            {
+                _confirming = false;
+            }
+        }
+        Dialog.Cancel();
     }
 }

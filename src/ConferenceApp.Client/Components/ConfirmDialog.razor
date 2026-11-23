@@ -1,10 +1,16 @@
 <MudDialog>
     <DialogContent>
         <MudText>@Text</MudText>
+        @if (ConfirmName is not null)
+        {
+            <MudText Typo="Typo.body2" Class="mt-4">Zur Bestätigung den Namen <strong>@ConfirmName</strong> eingeben:</MudText>
+            <MudTextField @bind-Value="_typedName" Immediate="true" Variant="Variant.Outlined" Margin="Margin.Dense" AutoFocus="true"
+                          Label="Name" Class="mt-1" />
+        }
     </DialogContent>
     <DialogActions>
-        <MudButton OnClick="() => Dialog.Cancel()">Abbrechen</MudButton>
-        <MudButton Variant="Variant.Filled" Color="Color.Error" OnClick="() => Dialog.Close(DialogResult.Ok(true))">@ConfirmText</MudButton>
+        <MudButton OnClick="() => Dialog.Cancel()">@CancelText</MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Error" Disabled="!CanConfirm" OnClick="() => Dialog.Close(DialogResult.Ok(true))">@ConfirmText</MudButton>
     </DialogActions>
 </MudDialog>
 
@@ -12,4 +18,12 @@
     [CascadingParameter] private IMudDialogInstance Dialog { get; set; } = default!;
     [Parameter] public string Text { get; set; } = "";
     [Parameter] public string ConfirmText { get; set; } = "Löschen";
+    [Parameter] public string CancelText { get; set; } = "Abbrechen";
+
+    /// <summary>Wenn gesetzt, wird der Bestätigungs-Button erst aktiv, wenn genau dieser Name eingetippt wurde.</summary>
+    [Parameter] public string? ConfirmName { get; set; }
+
+    private string? _typedName;
+
+    private bool CanConfirm => ConfirmName is null || string.Equals(_typedName, ConfirmName, StringComparison.Ordinal);
 }

@@ -1,0 +1,38 @@
+@* Umschalter für das Farbschema (Wie System / Hell / Dunkel) – in der AppBar von PublicLayout und AdminLayout. *@
+@implements IDisposable
+@inject ThemeService ThemeState
+
+<MudMenu Icon="@ModeIcon(ThemeState.Mode)" Color="Color.Inherit" AriaLabel="@MenuLabel"
+         AnchorOrigin="Origin.BottomRight" TransformOrigin="Origin.TopRight" Dense="true">
+    @foreach (var mode in Enum.GetValues<ThemeMode>())
+    {
+        <MudMenuItem Icon="@ModeIcon(mode)" IconColor="@(mode == ThemeState.Mode ? Color.Primary : Color.Default)"
+                     OnClick="() => ThemeState.SetModeAsync(mode)">
+            @ModeLabel(mode)
+        </MudMenuItem>
+    }
+</MudMenu>
+
+@code {
+    private string MenuLabel => "Farbschema: " + ModeLabel(ThemeState.Mode);
+
+    protected override void OnInitialized() => ThemeState.Changed += OnThemeChanged;
+
+    private void OnThemeChanged() => InvokeAsync(StateHasChanged);
+
+    private static string ModeLabel(ThemeMode mode) => mode switch
+    {
+        ThemeMode.Light => "Hell",
+        ThemeMode.Dark => "Dunkel",
+        _ => "Wie System",
+    };
+
+    private static string ModeIcon(ThemeMode mode) => mode switch
+    {
+        ThemeMode.Light => Icons.Material.Filled.LightMode,
+        ThemeMode.Dark => Icons.Material.Filled.DarkMode,
+        _ => Icons.Material.Filled.BrightnessAuto,
+    };
+
+    public void Dispose() => ThemeState.Changed -= OnThemeChanged;
+}

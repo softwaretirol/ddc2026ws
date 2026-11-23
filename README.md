@@ -61,6 +61,7 @@ tests/
 |---|---|
 | Konferenzen | `/api/conferences` mit CRUD (anlegen, lesen, ändern, löschen) |
 | Öffentliche Agenda | `GET /api/conferences/{slug}/agenda` |
+| Agenda als Kalender (iCal, abonnierbar) | `GET /api/conferences/{slug}/agenda.ics`, optional `?track={trackId}` |
 | Tracks, Räume, Sessions | `/api/conferences/{id}/tracks`, `/rooms` und `/sessions`, jeweils mit CRUD |
 | Speaker | `/api/speakers` mit CRUD; `GET /api/speakers/{id}` liefert den Speaker samt Sessions |
 

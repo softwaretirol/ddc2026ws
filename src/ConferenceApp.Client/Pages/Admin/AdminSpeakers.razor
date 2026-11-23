@@ -2,16 +2,17 @@
 @inject ApiClient Api
 @inject IDialogService Dialogs
 @inject ISnackbar Snackbar
+@inject NavigationManager Navigation
 
 <PageTitle>Admin – Speaker</PageTitle>
 
-<div class="d-flex align-center mb-4">
-    <MudText Typo="Typo.h4">Speaker verwalten</MudText>
-    <MudSpacer />
-    <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add" OnClick="() => EditAsync(null)">Neuer Speaker</MudButton>
-</div>
+<PageHeader Title="Speaker verwalten" Dense="true">
+    <Actions>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add" OnClick="() => EditAsync(null)">Neuer Speaker</MudButton>
+    </Actions>
+</PageHeader>
 
-<PageState Loading="_items is null" Error="@_error">
+<PageState Loading="_items is null" Error="@_error" OnRetry="LoadAsync">
     <MudTable Items="_items" Hover="true" Elevation="1" Filter="Matches" Breakpoint="Breakpoint.Sm">
         <ToolBarContent>
             <MudTextField @bind-Value="_search" Placeholder="Suchen…" Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search"
@@ -21,18 +22,29 @@
             <MudTh></MudTh>
             <MudTh>Name</MudTh>
             <MudTh>Firma</MudTh>
-            <MudTh Style="text-align:right">Aktionen</MudTh>
+            <MudTh Class="col-actions">Aktionen</MudTh>
         </HeaderContent>
         <RowTemplate>
             <MudTd><SpeakerAvatar Name="@context.Name" PhotoUrl="@context.PhotoUrl" Size="Size.Small" /></MudTd>
             <MudTd DataLabel="Name"><MudLink Href="@($"/speaker/{context.Id}")">@context.Name</MudLink></MudTd>
             <MudTd DataLabel="Firma">@context.Company</MudTd>
-            <MudTd Style="text-align:right;white-space:nowrap">
+            <MudTd Class="col-actions">
                 <MudIconButton Icon="@Icons.Material.Filled.Edit" OnClick="() => EditAsync(context)" aria-label="Bearbeiten" />
                 <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" OnClick="() => DeleteAsync(context)" aria-label="Löschen" />
             </MudTd>
         </RowTemplate>
-        <NoRecordsContent><MudText>Keine Speaker gefunden.</MudText></NoRecordsContent>
+        <NoRecordsContent>
+            @if (_items!.Count == 0)
+            {
+                <EmptyState Icon="@Icons.Material.Outlined.RecordVoiceOver" Title="Noch keine Speaker" Text="Lege Speaker an, um sie Sessions zuzuordnen.">
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add" OnClick="() => EditAsync(null)">Neuer Speaker</MudButton>
+                </EmptyState>
+            }
+            else
+            {
+                <MudText>Keine Speaker gefunden.</MudText>
+            }
+        </NoRecordsContent>
     </MudTable>
 </PageState>
 
@@ -45,6 +57,7 @@
 
     private async Task LoadAsync()
     {
+        _error = null;
         try { _items = await Api.GetSpeakersAsync(); }
         catch (ApiException ex) { _error = ex.Message; }
     }
@@ -60,15 +73,16 @@
             ? new SpeakerRequest()
             : new SpeakerRequest { Name = existing.Name, Bio = existing.Bio, Company = existing.Company, PhotoUrl = existing.PhotoUrl, Links = [.. existing.Links] };
 
+        SpeakerDto? saved = null;
         var parameters = new DialogParameters<SpeakerDialog>
         {
             { x => x.Model, model },
-            { x => x.OnSave, r => existing is null ? Api.CreateSpeakerAsync(r) : Api.UpdateSpeakerAsync(existing.Id, r) },
+            { x => x.OnSave, async r => saved = existing is null ? await Api.CreateSpeakerAsync(r) : await Api.UpdateSpeakerAsync(existing.Id, r) },
         };
 
-        if (await Dialogs.ShowFormAsync(existing is null ? "Neuer Speaker" : "Speaker bearbeiten", parameters))
+        if (await Dialogs.ShowFormAsync(existing is null ? "Neuer Speaker" : "Speaker bearbeiten", parameters) && saved is not null)
         {
-            Snackbar.Add("Gespeichert.", Severity.Success);
+            Snackbar.AddSaved($"Speaker „{saved.Name}“ gespeichert.", Navigation, $"/speaker/{saved.Id}");
             await LoadAsync();
         }
     }

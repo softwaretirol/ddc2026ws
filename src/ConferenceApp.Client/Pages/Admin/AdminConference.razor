@@ -2,62 +2,149 @@
 @inject ApiClient Api
 @inject IDialogService Dialogs
 @inject ISnackbar Snackbar
+@inject NavigationManager Navigation
 
 <PageTitle>Admin – @(_conference?.Name ?? "Konferenz")</PageTitle>
 
-<PageState Loading="_conference is null" Error="@_error">
-    <MudBreadcrumbs Items="_breadcrumbs" Class="px-0 pt-0" />
-    <div class="d-flex align-center flex-wrap gap-2 mb-4">
-        <div>
-            <MudText Typo="Typo.h4">@_conference!.Name</MudText>
-            <MudText Typo="Typo.subtitle1" Color="Color.Secondary">@Format.DateRange(_conference.StartDate, _conference.EndDate) · @_conference.Location</MudText>
-        </div>
-        <MudSpacer />
-        <MudButton Href="@($"/konferenzen/{_conference.Slug}")" Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.OpenInNew">Öffentliche Agenda</MudButton>
-    </div>
+<PageState Loading="_conference is null" Error="@_error" NotFound="_notFound" OnRetry="LoadAsync" BackHref="/admin" BackText="Zur Konferenzverwaltung">
+    <PageHeader Title="@_conference!.Name" Breadcrumbs="_breadcrumbs" Dense="true">
+        <Meta>
+            <span><MudIcon Icon="@Icons.Material.Outlined.Event" Size="Size.Small" />@Format.DateRange(_conference.StartDate, _conference.EndDate)</span>
+            @if (_conference.Location is not null)
+            {
+                <span><MudIcon Icon="@Icons.Material.Outlined.Place" Size="Size.Small" />@_conference.Location</span>
+            }
+        </Meta>
+        <Actions>
+            <MudButton Href="@($"/konferenzen/{_conference.Slug}")" Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.OpenInNew">Öffentliche Agenda</MudButton>
+        </Actions>
+    </PageHeader>
 
     <MudTabs Elevation="1" Rounded="true" ApplyEffectsToContainer="true" TabPanelsClass="pa-4">
         <MudTabPanel Text="@($"Sessions ({_sessions.Count})")" Icon="@Icons.Material.Filled.Mic">
-            <div class="d-flex mb-3">
+            @* Toolbar: Suche und Filter links, Aktionen rechts *@
+            <div class="d-flex flex-wrap align-center gap-3 mb-3">
+                <MudTextField @bind-Value="_search" Placeholder="Suche (Titel, Speaker, Abstract)" Immediate="true" DebounceInterval="250"
+                              Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search" Clearable="true"
+                              Variant="Variant.Outlined" Margin="Margin.Dense" Style="min-width:240px;max-width:320px" aria-label="Sessions durchsuchen" />
+                <MudSelect T="int?" @bind-Value="_roomFilter" Label="Raum" Clearable="true" Variant="Variant.Outlined" Margin="Margin.Dense"
+                           Style="min-width:160px;max-width:220px" Placeholder="Alle Räume">
+                    @foreach (var r in _rooms)
+                    {
+                        <MudSelectItem T="int?" Value="r.Id">@r.Name</MudSelectItem>
+                    }
+                </MudSelect>
+                <MudSelect T="int?" @bind-Value="_trackFilter" Label="Track" Clearable="true" Variant="Variant.Outlined" Margin="Margin.Dense"
+                           Style="min-width:160px;max-width:220px" Placeholder="Alle Tracks">
+                    <MudSelectItem T="int?" Value="NoTrack">Ohne Track</MudSelectItem>
+                    @foreach (var t in _tracks)
+                    {
+                        <MudSelectItem T="int?" Value="t.Id">@t.Name</MudSelectItem>
+                    }
+                </MudSelect>
+                <MudSwitch @bind-Value="_onlyIncomplete" Color="Color.Warning" Label="Nur unvollständige" />
                 <MudSpacer />
+                <MudButton Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.CalendarViewDay" OnClick="() => ShowAgendaPreviewAsync(null)"
+                           Disabled="_rooms.Count == 0">Agenda-Vorschau</MudButton>
                 <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add" OnClick="() => EditSessionAsync(null)"
                            Disabled="_rooms.Count == 0">Neue Session</MudButton>
             </div>
             @if (_rooms.Count == 0)
             {
-                <MudAlert Severity="Severity.Info" Class="mb-3">Lege zuerst mindestens einen Raum an.</MudAlert>
+                <MudAlert Severity="Severity.Info" Class="mb-4">Lege zuerst mindestens einen Raum an.</MudAlert>
             }
-            <MudTable Items="_sessions" Hover="true" Dense="true" Elevation="0" Breakpoint="Breakpoint.Sm">
+            @if (IncompleteCount > 0)
+            {
+                <MudAlert Severity="Severity.Warning" Dense="true" Class="mb-3">
+                    <div class="d-flex align-center flex-wrap gap-2">
+                        <span>@IncompleteText – fehlender Speaker, Track oder Abstract.</span>
+                        @if (!_onlyIncomplete)
+                        {
+                            <MudButton Size="Size.Small" Variant="Variant.Text" Color="Color.Warning" OnClick="() => _onlyIncomplete = true">Nur diese anzeigen</MudButton>
+                        }
+                    </div>
+                </MudAlert>
+            }
+            @if (IsFiltered)
+            {
+                <div class="d-flex align-center gap-2 mb-2">
+                    <MudText Typo="Typo.body2" Color="Color.Secondary">@FilteredSessions.Count von @_sessions.Count Sessions</MudText>
+                    <MudButton Size="Size.Small" Variant="Variant.Text" StartIcon="@Icons.Material.Filled.FilterAltOff" OnClick="ResetFilters">Filter zurücksetzen</MudButton>
+                </div>
+            }
+            <MudTable Items="FilteredSessions" Hover="true" Dense="true" Elevation="0" Breakpoint="Breakpoint.Sm"
+                      GroupBy="_groupByDay" GroupHeaderClass="mud-table-group-header" OnRowClick="OnSessionRowClick" T="SessionDto"
+                      RowClassFunc="SessionRowClass">
                 <HeaderContent>
-                    <MudTh>Tag</MudTh>
-                    <MudTh>Zeit</MudTh>
-                    <MudTh>Raum</MudTh>
-                    <MudTh>Titel</MudTh>
-                    <MudTh>Track</MudTh>
-                    <MudTh>Speaker</MudTh>
-                    <MudTh Style="text-align:right">Aktionen</MudTh>
+                    <MudTh><MudTableSortLabel T="SessionDto" SortBy="s => (s.Day, s.StartTime, s.RoomName)" InitialDirection="SortDirection.Ascending">Zeit</MudTableSortLabel></MudTh>
+                    <MudTh><MudTableSortLabel T="SessionDto" SortBy="s => (s.Day, s.RoomName, s.StartTime)">Raum</MudTableSortLabel></MudTh>
+                    <MudTh><MudTableSortLabel T="SessionDto" SortBy="s => (s.Day, s.Title)">Titel</MudTableSortLabel></MudTh>
+                    <MudTh><MudTableSortLabel T="SessionDto" SortBy="s => (s.Day, s.TrackName ?? string.Empty)">Track</MudTableSortLabel></MudTh>
+                    <MudTh><MudTableSortLabel T="SessionDto" SortBy="s => (s.Day, SpeakerNames(s))">Speaker</MudTableSortLabel></MudTh>
+                    <MudTh Class="col-actions">Aktionen</MudTh>
                 </HeaderContent>
+                <GroupHeaderTemplate>
+                    <MudTd colspan="6">
+                        <div class="d-flex align-center flex-wrap gap-2">
+                            <MudText Typo="Typo.subtitle2">@Format.Day((DateOnly)context.Key!)</MudText>
+                            <MudChip T="string" Size="Size.Small" Variant="Variant.Text">@SessionCountText(context.Items.Count())</MudChip>
+                            @{ var incomplete = context.Items.Count(IsIncomplete); }
+                            @if (incomplete > 0)
+                            {
+                                <MudChip T="string" Size="Size.Small" Variant="Variant.Text" Color="Color.Warning" Icon="@Icons.Material.Filled.WarningAmber">@incomplete unvollständig</MudChip>
+                            }
+                            <MudSpacer />
+                            <MudButton Size="Size.Small" Variant="Variant.Text" StartIcon="@Icons.Material.Filled.CalendarViewDay"
+                                       OnClick="() => ShowAgendaPreviewAsync((DateOnly)context.Key!)">Agenda-Vorschau</MudButton>
+                        </div>
+                    </MudTd>
+                </GroupHeaderTemplate>
                 <RowTemplate>
-                    <MudTd DataLabel="Tag">@Format.Day(context.Day)</MudTd>
-                    <MudTd DataLabel="Zeit">@Format.Range(context.StartTime, context.EndTime)</MudTd>
+                    <MudTd DataLabel="Zeit" Style="white-space:nowrap">@Format.Range(context.StartTime, context.EndTime)</MudTd>
                     <MudTd DataLabel="Raum">@context.RoomName</MudTd>
-                    <MudTd DataLabel="Titel">@context.Title</MudTd>
+                    <MudTd DataLabel="Titel">
+                        @{ var missing = MissingFields(context); }
+                        @if (missing.Count > 0)
+                        {
+                            <MudTooltip Text="@MissingText(missing)">
+                                <MudIcon Icon="@Icons.Material.Filled.WarningAmber" Color="Color.Warning" Size="Size.Small"
+                                         Style="vertical-align:text-bottom" aria-label="@MissingText(missing)" />
+                            </MudTooltip>
+                        }
+                        @context.Title
+                    </MudTd>
                     <MudTd DataLabel="Track">
                         @if (context.TrackName is not null) { <span class="color-dot" style="background:@context.TrackColor"></span>@context.TrackName }
+                        else { <MudText Typo="Typo.body2" Color="Color.Warning" Inline="true">kein Track</MudText> }
                     </MudTd>
-                    <MudTd DataLabel="Speaker">@string.Join(", ", context.Speakers.Select(s => s.Name))</MudTd>
-                    <MudTd Style="text-align:right;white-space:nowrap">
-                        <MudIconButton Icon="@Icons.Material.Filled.Edit" OnClick="() => EditSessionAsync(context)" aria-label="Bearbeiten" />
-                        <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" aria-label="Löschen"
-                                       OnClick="() => DeleteSessionAsync(context)" />
+                    <MudTd DataLabel="Speaker">
+                        @if (context.Speakers.Count > 0) { @SpeakerNames(context) }
+                        else { <MudText Typo="Typo.body2" Color="Color.Warning" Inline="true">kein Speaker</MudText> }
+                    </MudTd>
+                    <MudTd Class="col-actions">
+                        @* Klicks auf die Aktionen sollen nicht zusätzlich den Zeilenklick (Bearbeiten) auslösen. *@
+                        <span @onclick:stopPropagation="true">
+                            <MudIconButton Icon="@Icons.Material.Filled.Edit" OnClick="() => EditSessionAsync(context)" aria-label="Bearbeiten" />
+                            <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" aria-label="Löschen"
+                                           OnClick="() => DeleteSessionAsync(context)" />
+                        </span>
                     </MudTd>
                 </RowTemplate>
-                <NoRecordsContent><MudText>Noch keine Sessions.</MudText></NoRecordsContent>
+                <NoRecordsContent>
+                    @if (_sessions.Count == 0)
+                    {
+                        <MudText>Noch keine Sessions.</MudText>
+                    }
+                    else
+                    {
+                        <MudText>Keine Sessions passen zu den Filtern.</MudText>
+                    }
+                </NoRecordsContent>
             </MudTable>
         </MudTabPanel>
 
         <MudTabPanel Text="@($"Tracks ({_tracks.Count})")" Icon="@Icons.Material.Filled.Label">
-            <div class="d-flex mb-3">
+            <div class="d-flex mb-4">
                 <MudSpacer />
                 <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add" OnClick="() => EditTrackAsync(null)">Neuer Track</MudButton>
             </div>
@@ -65,12 +152,12 @@
                 <HeaderContent>
                     <MudTh>Name</MudTh>
                     <MudTh>Farbe</MudTh>
-                    <MudTh Style="text-align:right">Aktionen</MudTh>
+                    <MudTh Class="col-actions">Aktionen</MudTh>
                 </HeaderContent>
                 <RowTemplate>
                     <MudTd DataLabel="Name"><span class="color-dot" style="background:@context.Color"></span>@context.Name</MudTd>
                     <MudTd DataLabel="Farbe">@context.Color</MudTd>
-                    <MudTd Style="text-align:right;white-space:nowrap">
+                    <MudTd Class="col-actions">
                         <MudIconButton Icon="@Icons.Material.Filled.Edit" OnClick="() => EditTrackAsync(context)" aria-label="Bearbeiten" />
                         <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" aria-label="Löschen"
                                        OnClick="() => DeleteTrackAsync(context)" />
@@ -81,7 +168,7 @@
         </MudTabPanel>
 
         <MudTabPanel Text="@($"Räume ({_rooms.Count})")" Icon="@Icons.Material.Filled.MeetingRoom">
-            <div class="d-flex mb-3">
+            <div class="d-flex mb-4">
                 <MudSpacer />
                 <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add" OnClick="() => EditRoomAsync(null)">Neuer Raum</MudButton>
             </div>
@@ -89,15 +176,29 @@
                 <HeaderContent>
                     <MudTh>Name</MudTh>
                     <MudTh>Kapazität</MudTh>
-                    <MudTh Style="text-align:right">Aktionen</MudTh>
+                    <MudTh Class="col-actions">Aktionen</MudTh>
                 </HeaderContent>
                 <RowTemplate>
                     <MudTd DataLabel="Name">@context.Name</MudTd>
                     <MudTd DataLabel="Kapazität">@context.Capacity</MudTd>
-                    <MudTd Style="text-align:right;white-space:nowrap">
+                    <MudTd Class="col-actions">
                         <MudIconButton Icon="@Icons.Material.Filled.Edit" OnClick="() => EditRoomAsync(context)" aria-label="Bearbeiten" />
-                        <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" aria-label="Löschen"
-                                       OnClick="() => DeleteRoomAsync(context)" />
+                        @{ var roomSessions = SessionCount(context); }
+                        @if (roomSessions > 0)
+                        {
+                            @* Deaktivierte Buttons zeigen keinen Tooltip – daher der span als Wrapper. *@
+                            <MudTooltip Text="@RoomInUseText(roomSessions)">
+                                <span>
+                                    <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" Disabled="true"
+                                                   aria-label="@($"Löschen nicht möglich: {RoomInUseText(roomSessions)}")" />
+                                </span>
+                            </MudTooltip>
+                        }
+                        else
+                        {
+                            <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" aria-label="Löschen"
+                                           OnClick="() => DeleteRoomAsync(context)" />
+                        }
                     </MudTd>
                 </RowTemplate>
                 <NoRecordsContent><MudText>Noch keine Räume.</MudText></NoRecordsContent>
@@ -115,12 +216,15 @@
     private List<RoomDto> _rooms = [];
     private List<SpeakerDto> _speakers = [];
     private string? _error;
+    private bool _notFound;
     private List<BreadcrumbItem> _breadcrumbs = [];
 
     protected override Task OnParametersSetAsync() => LoadAsync();
 
     private async Task LoadAsync()
     {
+        _error = null;
+        _notFound = false;
         try
         {
             var conference = Api.GetConferenceAsync(Id);
@@ -133,19 +237,24 @@
             (_conference, _sessions, _tracks, _rooms, _speakers) = (conference.Result, sessions.Result, tracks.Result, rooms.Result, speakers.Result);
             _breadcrumbs = [new("Admin", "/admin"), new(_conference.Name, null, disabled: true)];
         }
-        catch (ApiException ex) { _error = ex.IsNotFound ? "Diese Konferenz gibt es nicht." : ex.Message; }
+        catch (ApiException ex)
+        {
+            _notFound = ex.IsNotFound;
+            _error = ex.IsNotFound ? "Diese Konferenz gibt es nicht." : ex.Message;
+        }
     }
 
     private async Task EditSessionAsync(SessionDto? s)
     {
         var model = s is null
-            ? new SessionRequest { Day = _conference!.StartDate, RoomId = _rooms.FirstOrDefault()?.Id ?? 0 }
+            ? new SessionRequest { Day = DefaultSessionDay(), RoomId = DefaultSessionRoomId() }
             : new SessionRequest
             {
                 Title = s.Title, Abstract = s.Abstract, Day = s.Day, StartTime = s.StartTime, EndTime = s.EndTime,
                 RoomId = s.RoomId, TrackId = s.TrackId, SpeakerIds = s.Speakers.Select(x => x.Id).ToList(),
             };
 
+        SessionDto? saved = null;
         var parameters = new DialogParameters<SessionDialog>
         {
             { x => x.Model, model },
@@ -153,43 +262,153 @@
             { x => x.Rooms, _rooms },
             { x => x.Tracks, _tracks },
             { x => x.Speakers, _speakers },
-            { x => x.OnSave, r => s is null ? Api.CreateSessionAsync(Id, r) : Api.UpdateSessionAsync(Id, s.Id, r) },
+            { x => x.Sessions, _sessions },
+            { x => x.SessionId, s?.Id },
+            { x => x.OnSave, async r =>
+                {
+                    saved = s is null ? await Api.CreateSessionAsync(Id, r) : await Api.UpdateSessionAsync(Id, s.Id, r);
+                    (_lastSessionDay, _lastSessionRoomId) = (r.Day, r.RoomId);
+                } },
         };
-        await AfterSaveAsync(await Dialogs.ShowFormAsync(s is null ? "Neue Session" : "Session bearbeiten", parameters));
+        if (await Dialogs.ShowFormAsync(s is null ? "Neue Session" : "Session bearbeiten", parameters) && saved is not null)
+            await AfterSaveAsync($"Session „{saved.Title}“ gespeichert.", $"/konferenzen/{_conference!.Slug}/sessions/{saved.Id}");
     }
+
+    // --- Sessionliste: Filter, Gruppierung, Hinweise ---
+
+    /// <summary>Pseudo-Track-Id für den Filter „Ohne Track“ (echte Ids sind > 0).</summary>
+    private const int NoTrack = 0;
+
+    private string? _search;
+    private int? _roomFilter;
+    private int? _trackFilter;
+    private bool _onlyIncomplete;
+
+    private readonly TableGroupDefinition<SessionDto> _groupByDay = new()
+    {
+        GroupName = "Tag",
+        Indentation = false,
+        Expandable = true,
+        IsInitiallyExpanded = true,
+        Selector = s => s.Day,
+    };
+
+    private bool IsFiltered => !string.IsNullOrWhiteSpace(_search) || _roomFilter is not null || _trackFilter is not null || _onlyIncomplete;
+
+    private List<SessionDto> FilteredSessions => _sessions
+        .Where(s => _roomFilter is null || s.RoomId == _roomFilter)
+        .Where(s => _trackFilter is null || (_trackFilter == NoTrack ? s.TrackId is null : s.TrackId == _trackFilter))
+        .Where(s => !_onlyIncomplete || IsIncomplete(s))
+        .Where(MatchesSearch)
+        .OrderBy(s => s.Day).ThenBy(s => s.StartTime).ThenBy(s => s.RoomName)
+        .ToList();
+
+    private bool MatchesSearch(SessionDto s)
+    {
+        if (string.IsNullOrWhiteSpace(_search)) return true;
+        var q = _search.Trim();
+        return s.Title.Contains(q, StringComparison.OrdinalIgnoreCase)
+            || (s.Abstract?.Contains(q, StringComparison.OrdinalIgnoreCase) ?? false)
+            || s.Speakers.Any(x => x.Name.Contains(q, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private void ResetFilters() => (_search, _roomFilter, _trackFilter, _onlyIncomplete) = (null, null, null, false);
+
+    private static List<string> MissingFields(SessionDto s)
+    {
+        var missing = new List<string>();
+        if (s.Speakers.Count == 0) missing.Add("Speaker");
+        if (s.TrackId is null) missing.Add("Track");
+        if (string.IsNullOrWhiteSpace(s.Abstract)) missing.Add("Abstract");
+        return missing;
+    }
+
+    private static bool IsIncomplete(SessionDto s) => MissingFields(s).Count > 0;
+    private static string MissingText(List<string> missing) => "Es fehlt: " + string.Join(", ", missing);
+    private static string SpeakerNames(SessionDto s) => string.Join(", ", s.Speakers.Select(x => x.Name));
+    private static string SessionCountText(int n) => n == 1 ? "1 Session" : $"{n} Sessions";
+
+    private int IncompleteCount => _sessions.Count(IsIncomplete);
+    private string IncompleteText => IncompleteCount == 1 ? "1 Session unvollständig" : $"{IncompleteCount} Sessions unvollständig";
+
+    private static string SessionRowClass(SessionDto s, int index) => "cursor-pointer";
+
+    private Task OnSessionRowClick(TableRowClickEventArgs<SessionDto> args) =>
+        args.Item is null ? Task.CompletedTask : EditSessionAsync(args.Item);
+
+    private async Task ShowAgendaPreviewAsync(DateOnly? day)
+    {
+        var parameters = new DialogParameters<AgendaPreviewDialog>
+        {
+            { x => x.Conference, _conference! },
+            { x => x.Rooms, _rooms },
+            { x => x.Sessions, _sessions },
+            { x => x.Day, day ?? _conference!.StartDate },
+        };
+        var options = new DialogOptions { MaxWidth = MaxWidth.ExtraLarge, FullWidth = true, CloseButton = true };
+        await Dialogs.ShowAsync<AgendaPreviewDialog>("Agenda-Vorschau", parameters, options);
+    }
+    // Vorbelegung neuer Sessions: zuletzt gespeicherter Tag/Raum (sofern noch gültig), sonst erster Tag/erster Raum.
+    // Die Uhrzeit schlägt der SessionDialog anhand der Raumbelegung vor.
+    private DateOnly? _lastSessionDay;
+    private int? _lastSessionRoomId;
+
+    private DateOnly DefaultSessionDay() =>
+        _lastSessionDay is { } d && d >= _conference!.StartDate && d <= _conference.EndDate ? d : _conference!.StartDate;
+
+    private int DefaultSessionRoomId() =>
+        _rooms.FirstOrDefault(r => r.Id == _lastSessionRoomId)?.Id ?? _rooms.FirstOrDefault()?.Id ?? 0;
 
     private async Task EditTrackAsync(TrackDto? t)
     {
         var model = t is null ? new TrackRequest() : new TrackRequest { Name = t.Name, Color = t.Color };
+        TrackDto? saved = null;
         var parameters = new DialogParameters<TrackDialog>
         {
             { x => x.Model, model },
-            { x => x.OnSave, r => t is null ? Api.CreateTrackAsync(Id, r) : Api.UpdateTrackAsync(Id, t.Id, r) },
+            { x => x.OnSave, async r => saved = t is null ? await Api.CreateTrackAsync(Id, r) : await Api.UpdateTrackAsync(Id, t.Id, r) },
         };
-        await AfterSaveAsync(await Dialogs.ShowFormAsync(t is null ? "Neuer Track" : "Track bearbeiten", parameters));
+        if (await Dialogs.ShowFormAsync(t is null ? "Neuer Track" : "Track bearbeiten", parameters) && saved is not null)
+            await AfterSaveAsync($"Track „{saved.Name}“ gespeichert.", AgendaUrl);
     }
 
     private async Task EditRoomAsync(RoomDto? room)
     {
         var model = room is null ? new RoomRequest() : new RoomRequest { Name = room.Name, Capacity = room.Capacity };
+        RoomDto? saved = null;
         var parameters = new DialogParameters<RoomDialog>
         {
             { x => x.Model, model },
-            { x => x.OnSave, r => room is null ? Api.CreateRoomAsync(Id, r) : Api.UpdateRoomAsync(Id, room.Id, r) },
+            { x => x.OnSave, async r => saved = room is null ? await Api.CreateRoomAsync(Id, r) : await Api.UpdateRoomAsync(Id, room.Id, r) },
         };
-        await AfterSaveAsync(await Dialogs.ShowFormAsync(room is null ? "Neuer Raum" : "Raum bearbeiten", parameters));
+        if (await Dialogs.ShowFormAsync(room is null ? "Neuer Raum" : "Raum bearbeiten", parameters) && saved is not null)
+            await AfterSaveAsync($"Raum „{saved.Name}“ gespeichert.", AgendaUrl);
     }
 
-    private async Task AfterSaveAsync(bool saved)
+    private string AgendaUrl => $"/konferenzen/{_conference!.Slug}";
+
+    private async Task AfterSaveAsync(string text, string href)
     {
-        if (!saved) return;
-        Snackbar.Add("Gespeichert.", Severity.Success);
+        Snackbar.AddSaved(text, Navigation, href);
         await LoadAsync();
     }
 
     private Task DeleteSessionAsync(SessionDto s) => DeleteAsync($"Session „{s.Title}“ löschen?", () => Api.DeleteSessionAsync(Id, s.Id));
-    private Task DeleteTrackAsync(TrackDto t) => DeleteAsync($"Track „{t.Name}“ löschen? Sessions bleiben ohne Track erhalten.", () => Api.DeleteTrackAsync(Id, t.Id));
+    private Task DeleteTrackAsync(TrackDto t)
+    {
+        var count = _sessions.Count(s => s.TrackId == t.Id);
+        var text = count == 0
+            ? $"Track „{t.Name}“ löschen? Ihm sind keine Sessions zugeordnet."
+            : $"Track „{t.Name}“ löschen? {Format.Count(count, "Session bleibt", "Sessions bleiben")} ohne Track erhalten.";
+        return DeleteAsync(text, () => Api.DeleteTrackAsync(Id, t.Id));
+    }
+
+    // Räume mit Sessions sind in der Tabelle gar nicht löschbar; die API-Regel (409) bleibt als Absicherung.
     private Task DeleteRoomAsync(RoomDto r) => DeleteAsync($"Raum „{r.Name}“ löschen?", () => Api.DeleteRoomAsync(Id, r.Id));
+
+    private int SessionCount(RoomDto r) => _sessions.Count(s => s.RoomId == r.Id);
+
+    private static string RoomInUseText(int sessions) => $"{Format.Count(sessions, "Session", "Sessions")} zugeordnet";
 
     private async Task DeleteAsync(string text, Func<Task> delete)
     {

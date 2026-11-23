@@ -4,7 +4,8 @@ namespace ConferenceApp.Shared;
 
 // ---------- Lese-DTOs ----------
 
-public record ConferenceDto(int Id, string Name, string Slug, string? Description, DateOnly StartDate, DateOnly EndDate, string? Location);
+/// <param name="SessionCount">Anzahl der Sessions; nur in der Konferenzliste befüllt, sonst <c>null</c>.</param>
+public record ConferenceDto(int Id, string Name, string Slug, string? Description, DateOnly StartDate, DateOnly EndDate, string? Location, int? SessionCount = null);
 
 public record TrackDto(int Id, int ConferenceId, string Name, string Color);
 

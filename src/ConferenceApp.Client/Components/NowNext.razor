@@ -1,0 +1,47 @@
+@* Leiste „Läuft gerade / Als Nächstes“ – nur am laufenden Konferenztag eingeblendet (steuert die Agenda-Seite). *@
+
+@if (Running.Count > 0 || Next.Count > 0)
+{
+    <section class="now-next" aria-label="Läuft gerade und als Nächstes">
+        <div class="now-next-group">
+            <span class="now-next-label now-next-label--live">
+                <span class="now-next-dot" aria-hidden="true"></span>Läuft gerade
+            </span>
+            @if (Running.Count == 0)
+            {
+                <span class="now-next-empty">Gerade keine Session</span>
+            }
+            @foreach (var s in Running)
+            {
+                <a class="now-next-link" href="@SessionUrl(s)" style="@LinkStyle(s)">
+                    <span class="now-next-title">@s.Title</span>
+                    <span class="now-next-meta">@s.RoomName · bis @Format.Time(s.EndTime)</span>
+                </a>
+            }
+        </div>
+
+        @if (Next.Count > 0)
+        {
+            <div class="now-next-group">
+                <span class="now-next-label">Als Nächstes · @Format.Time(Next[0].StartTime)</span>
+                @foreach (var s in Next)
+                {
+                    <a class="now-next-link" href="@SessionUrl(s)" style="@LinkStyle(s)">
+                        <span class="now-next-title">@s.Title</span>
+                        <span class="now-next-meta">@s.RoomName</span>
+                    </a>
+                }
+            </div>
+        }
+    </section>
+}
+
+@code {
+    [Parameter, EditorRequired] public List<SessionDto> Running { get; set; } = [];
+    [Parameter, EditorRequired] public List<SessionDto> Next { get; set; } = [];
+    [Parameter, EditorRequired] public string Slug { get; set; } = "";
+
+    private string SessionUrl(SessionDto s) => $"/konferenzen/{Slug}/sessions/{s.Id}";
+
+    private static string LinkStyle(SessionDto s) => $"border-left-color:{s.TrackColor ?? "var(--mud-palette-gray-default)"}";
+}

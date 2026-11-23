@@ -1,12 +1,30 @@
 <FormDialog TModel="TrackRequest" Model="Model" OnSave="OnSave">
     <MudTextField @bind-Value="Model.Name" For="@(() => Model.Name)" Label="Name" Required="true" AutoFocus="true" />
-    <div class="d-flex align-center gap-3">
-        <input type="color" @bind="Model.Color" aria-label="Farbe wählen" style="width:48px;height:40px;border:none;background:none;cursor:pointer" />
-        <MudTextField @bind-Value="Model.Color" For="@(() => Model.Color)" Label="Farbe (#RRGGBB)" />
+    <div class="d-flex align-center gap-4">
+        <input type="color" @bind="Model.Color" aria-label="Farbe wählen" class="color-input" />
+        <MudTextField @bind-Value="Model.Color" For="@(() => Model.Color)" Label="Farbe (#RRGGBB)" Immediate="true" />
     </div>
+    @if (ColorContrast.Ratio(Model.Color, ColorContrast.White) is { } ratio)
+    {
+        <MudAlert Severity="@ContrastSeverity(ratio)" Dense="true" role="status">
+            Kontrast zu Weiß: <strong>@ColorContrast.FormatRatio(ratio)</strong> – @ContrastHint(ratio)
+        </MudAlert>
+    }
 </FormDialog>
 
 @code {
     [Parameter] public TrackRequest Model { get; set; } = new();
     [Parameter] public Func<TrackRequest, Task> OnSave { get; set; } = default!;
+
+    private static Severity ContrastSeverity(double ratio) =>
+        ratio >= ColorContrast.MinText ? Severity.Success
+        : ratio >= ColorContrast.MinNonText ? Severity.Warning
+        : Severity.Error;
+
+    private static string ContrastHint(double ratio) =>
+        ratio >= ColorContrast.MinText
+            ? "erfüllt WCAG AA (mind. 4,5:1)."
+            : ratio >= ColorContrast.MinNonText
+                ? "unter 4,5:1 (WCAG AA). Ränder und Punkte bleiben erkennbar, für bessere Lesbarkeit eine dunklere Farbe wählen."
+                : "zu kontrastarm: Ränder und Punkte sind auf Weiß kaum erkennbar (unter 3:1). Bitte eine dunklere Farbe wählen.";
 }
