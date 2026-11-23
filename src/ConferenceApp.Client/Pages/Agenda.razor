@@ -15,6 +15,12 @@
             {
                 <span><MudIcon Icon="@Icons.Material.Outlined.Place" Size="Size.Small" />@conf.Location</span>
             }
+            @* Konferenz-Kalender: berücksichtigt den aktiven Track-Filter *@
+            <MudMenu Label="@CalendarLabel()" StartIcon="@Icons.Material.Outlined.CalendarMonth" Size="Size.Small"
+                     Variant="Variant.Text" Color="Color.Primary" Dense="true" AriaLabel="Agenda als Kalender">
+                <MudMenuItem Icon="@Icons.Material.Outlined.Sync" Href="@IcsUrl(webcal: true)" ForceLoad="true">Kalender abonnieren</MudMenuItem>
+                <MudMenuItem Icon="@Icons.Material.Outlined.Download" Href="@IcsUrl(webcal: false)" ForceLoad="true">.ics herunterladen</MudMenuItem>
+            </MudMenu>
         </div>
         @if (!string.IsNullOrWhiteSpace(conf.Description))
         {
@@ -72,6 +78,16 @@
             _breadcrumbs = [new("Konferenzen", "/"), new(_agenda.Conference.Name, null, disabled: true)];
         }
         catch (ApiException ex) { _error = ex.IsNotFound ? "Diese Konferenz gibt es nicht." : ex.Message; }
+    }
+
+    private string CalendarLabel() =>
+        _agenda?.Tracks.FirstOrDefault(t => t.Id == _trackFilter) is { } track ? $"Kalender: {track.Name}" : "Kalender";
+
+    /// <summary>URL des Agenda-Kalenders; webcal:// öffnet direkt den Abo-Dialog der Kalender-App.</summary>
+    private string IcsUrl(bool webcal)
+    {
+        var uri = Api.GetAgendaIcsUri(Slug, _trackFilter);
+        return webcal ? "webcal" + uri.AbsoluteUri[uri.Scheme.Length..] : uri.AbsoluteUri;
     }
 
     private List<SessionDto> SessionsFor(DateOnly day) =>

@@ -18,6 +18,11 @@ public class ApiClient(HttpClient http)
     public Task<List<ConferenceDto>> GetConferencesAsync() => GetAsync<List<ConferenceDto>>("api/conferences");
     public Task<ConferenceDto> GetConferenceAsync(int id) => GetAsync<ConferenceDto>($"api/conferences/{id}");
     public Task<AgendaDto> GetAgendaAsync(string slug) => GetAsync<AgendaDto>($"api/conferences/{Uri.EscapeDataString(slug)}/agenda");
+
+    /// <summary>Absolute URL des abonnierbaren Agenda-Kalenders (iCal), optional für einen Track.</summary>
+    public Uri GetAgendaIcsUri(string slug, int? trackId = null) =>
+        new(http.BaseAddress!, $"api/conferences/{Uri.EscapeDataString(slug)}/agenda.ics" + (trackId is { } t ? $"?track={t}" : ""));
+
     public Task<ConferenceDto> CreateConferenceAsync(ConferenceRequest r) => SendAsync<ConferenceDto>(HttpMethod.Post, "api/conferences", r);
     public Task<ConferenceDto> UpdateConferenceAsync(int id, ConferenceRequest r) => SendAsync<ConferenceDto>(HttpMethod.Put, $"api/conferences/{id}", r);
     public Task DeleteConferenceAsync(int id) => DeleteAsync($"api/conferences/{id}");

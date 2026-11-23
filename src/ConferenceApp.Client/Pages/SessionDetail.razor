@@ -1,5 +1,9 @@
 @page "/konferenzen/{Slug}/sessions/{Id:int}"
 @inject ApiClient Api
+@inject IJSRuntime JS
+@inject NavigationManager Nav
+@inject ISnackbar Snackbar
+@implements IAsyncDisposable
 
 <PageTitle>@(_session?.Title ?? "Session")</PageTitle>
 
@@ -13,10 +17,12 @@
         }
         <MudText Typo="Typo.h4" GutterBottom="true">@_session.Title</MudText>
 
-        <div class="d-flex flex-wrap gap-4 mb-4">
+        <div class="d-flex flex-wrap align-center gap-4 mb-4">
             <MudText Typo="Typo.body1"><MudIcon Icon="@Icons.Material.Filled.Event" Size="Size.Small" Class="mr-1" />@Format.Day(_session.Day)</MudText>
             <MudText Typo="Typo.body1"><MudIcon Icon="@Icons.Material.Filled.Schedule" Size="Size.Small" Class="mr-1" />@Format.Range(_session.StartTime, _session.EndTime)</MudText>
             <MudText Typo="Typo.body1"><MudIcon Icon="@Icons.Material.Filled.MeetingRoom" Size="Size.Small" Class="mr-1" />@_session.RoomName</MudText>
+            <MudButton Variant="Variant.Outlined" Size="Size.Small" Color="Color.Primary" StartIcon="@Icons.Material.Filled.EventAvailable"
+                       OnClick="DownloadIcsAsync" Disabled="_downloading">Zum Kalender</MudButton>
         </div>
 
         @if (!string.IsNullOrWhiteSpace(_session.Abstract))
@@ -48,8 +54,11 @@
     [Parameter] public int Id { get; set; }
 
     private SessionDto? _session;
+    private ConferenceDto? _conference;
     private string? _error;
     private List<BreadcrumbItem> _breadcrumbs = [];
+    private IJSObjectReference? _downloadModule;
+    private bool _downloading;
 
     protected override async Task OnParametersSetAsync()
     {
@@ -58,10 +67,39 @@
         try
         {
             var agenda = await Api.GetAgendaAsync(Slug);
+            _conference = agenda.Conference;
             _session = agenda.Sessions.FirstOrDefault(s => s.Id == Id);
             if (_session is null) { _error = "Diese Session gibt es nicht."; return; }
             _breadcrumbs = [new("Konferenzen", "/"), new(agenda.Conference.Name, $"/konferenzen/{Slug}"), new(_session.Title, null, disabled: true)];
         }
         catch (ApiException ex) { _error = ex.IsNotFound ? "Diese Konferenz gibt es nicht." : ex.Message; }
+    }
+
+    /// <summary>Erzeugt die .ics-Datei der Session im Client und bietet sie zum Download an.</summary>
+    private async Task DownloadIcsAsync()
+    {
+        if (_session is null || _conference is null) return;
+        _downloading = true;
+        try
+        {
+            var ics = IcsBuilder.Build(_session.Title, _conference, [_session], _ => Nav.Uri);
+            _downloadModule ??= await JS.InvokeAsync<IJSObjectReference>("import", "./js/download.js");
+            await _downloadModule.InvokeVoidAsync("downloadText", IcsBuilder.FileName(_session.Title), ics, IcsBuilder.ContentType + ";charset=utf-8");
+        }
+        catch (JSException)
+        {
+            Snackbar.Add("Die Kalenderdatei konnte nicht erstellt werden.", Severity.Error);
+        }
+        finally
+        {
+            _downloading = false;
+        }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (_downloadModule is null) return;
+        try { await _downloadModule.DisposeAsync(); }
+        catch (JSDisconnectedException) { /* Seite wird bereits entladen */ }
     }
 }
