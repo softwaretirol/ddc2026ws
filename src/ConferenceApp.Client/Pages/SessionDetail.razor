@@ -3,7 +3,18 @@
 
 <PageTitle>@(_session?.Title ?? "Session")</PageTitle>
 
-<PageState Loading="_session is null" Error="@_error">
+<PageState Loading="_session is null" Error="@_error" NotFound="_notFound" OnRetry="LoadAsync" BackHref="@_backHref" BackText="@_backText">
+    <Skeleton>
+        <MudSkeleton Width="240px" Class="mb-2" />
+        <MudSkeleton Width="60%" Height="44px" />
+        <MudSkeleton Width="40%" Class="mb-6" />
+        <MudPaper Class="pa-6" Elevation="1">
+            <MudSkeleton />
+            <MudSkeleton />
+            <MudSkeleton Width="75%" />
+        </MudPaper>
+    </Skeleton>
+    <ChildContent>
     <PageHeader Title="@_session!.Title" Breadcrumbs="_breadcrumbs">
         <Meta>
             @if (_session.TrackName is not null)
@@ -40,6 +51,7 @@
             </MudStack>
         }
     </MudPaper>
+    </ChildContent>
 </PageState>
 
 @code {
@@ -48,19 +60,35 @@
 
     private SessionDto? _session;
     private string? _error;
+    private bool _notFound;
+    private string _backHref = "/";
+    private string _backText = "Zur Startseite";
     private List<BreadcrumbItem> _breadcrumbs = [];
 
-    protected override async Task OnParametersSetAsync()
+    protected override Task OnParametersSetAsync() => LoadAsync();
+
+    private async Task LoadAsync()
     {
         _session = null;
         _error = null;
+        _notFound = false;
         try
         {
             var agenda = await Api.GetAgendaAsync(Slug);
             _session = agenda.Sessions.FirstOrDefault(s => s.Id == Id);
-            if (_session is null) { _error = "Diese Session gibt es nicht."; return; }
+            if (_session is null)
+            {
+                (_notFound, _error) = (true, "Diese Session gibt es nicht.");
+                (_backHref, _backText) = ($"/konferenzen/{Slug}", "Zur Agenda");
+                return;
+            }
             _breadcrumbs = [new("Konferenzen", "/"), new(agenda.Conference.Name, $"/konferenzen/{Slug}"), new(_session.Title, null, disabled: true)];
         }
-        catch (ApiException ex) { _error = ex.IsNotFound ? "Diese Konferenz gibt es nicht." : ex.Message; }
+        catch (ApiException ex)
+        {
+            _notFound = ex.IsNotFound;
+            _error = ex.IsNotFound ? "Diese Konferenz gibt es nicht." : ex.Message;
+            (_backHref, _backText) = ("/", "Zur Startseite");
+        }
     }
 }

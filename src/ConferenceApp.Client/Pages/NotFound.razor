@@ -4,4 +4,13 @@
 <PageTitle>Seite nicht gefunden</PageTitle>
 
 <PageHeader Title="Seite nicht gefunden" />
-<MudText Typo="Typo.body1">Die angeforderte Seite gibt es nicht. Zurück zur <MudLink Href="/">Konferenzübersicht</MudLink>.</MudText>
+<div class="state-panel">
+    <MudIcon Icon="@Icons.Material.Outlined.SearchOff" Class="state-panel-icon" />
+    <MudText Typo="Typo.body1" Color="Color.Secondary">
+        Diese Adresse gibt es nicht (mehr). Vielleicht hat sich der Link geändert oder es hat sich ein Tippfehler eingeschlichen.
+    </MudText>
+    <div class="d-flex flex-wrap justify-center gap-2 mt-4">
+        <MudButton Href="/" Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Event">Zu den Konferenzen</MudButton>
+        <MudButton Href="/speaker" Variant="Variant.Outlined" Color="Color.Primary" StartIcon="@Icons.Material.Filled.RecordVoiceOver">Zu den Speakern</MudButton>
+    </div>
+</div>

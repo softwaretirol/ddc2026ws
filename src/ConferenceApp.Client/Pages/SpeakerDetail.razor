@@ -3,7 +3,23 @@
 
 <PageTitle>@(_detail?.Speaker.Name ?? "Speaker")</PageTitle>
 
-<PageState Loading="_detail is null" Error="@_error">
+<PageState Loading="_detail is null" Error="@_error" NotFound="_notFound" OnRetry="LoadAsync" BackHref="/speaker" BackText="Zu allen Speakern">
+    <Skeleton>
+        <MudSkeleton Width="200px" Class="mb-3" />
+        <MudPaper Class="pa-6" Elevation="1">
+            <div class="d-flex align-center gap-4 mb-4">
+                <MudSkeleton SkeletonType="SkeletonType.Circle" Width="56px" Height="56px" />
+                <div class="flex-grow-1">
+                    <MudSkeleton Width="40%" Height="40px" />
+                    <MudSkeleton Width="25%" />
+                </div>
+            </div>
+            <MudSkeleton />
+            <MudSkeleton />
+            <MudSkeleton Width="70%" />
+        </MudPaper>
+    </Skeleton>
+    <ChildContent>
     @{ var sp = _detail!.Speaker; }
     <PageHeader Title="@sp.Name" Breadcrumbs="_breadcrumbs">
         <Leading><SpeakerAvatar Name="@sp.Name" PhotoUrl="@sp.PhotoUrl" Size="Size.Large" /></Leading>
@@ -51,6 +67,7 @@
             </MudList>
         }
     </MudPaper>
+    </ChildContent>
 </PageState>
 
 @code {
@@ -58,17 +75,25 @@
 
     private SpeakerDetailDto? _detail;
     private string? _error;
+    private bool _notFound;
     private List<BreadcrumbItem> _breadcrumbs = [];
 
-    protected override async Task OnParametersSetAsync()
+    protected override Task OnParametersSetAsync() => LoadAsync();
+
+    private async Task LoadAsync()
     {
         _detail = null;
         _error = null;
+        _notFound = false;
         try
         {
             _detail = await Api.GetSpeakerAsync(Id);
             _breadcrumbs = [new("Speaker", "/speaker"), new(_detail.Speaker.Name, null, disabled: true)];
         }
-        catch (ApiException ex) { _error = ex.IsNotFound ? "Diesen Speaker gibt es nicht." : ex.Message; }
+        catch (ApiException ex)
+        {
+            _notFound = ex.IsNotFound;
+            _error = ex.IsNotFound ? "Diesen Speaker gibt es nicht." : ex.Message;
+        }
     }
 }

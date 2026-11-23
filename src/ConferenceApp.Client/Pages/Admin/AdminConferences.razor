@@ -11,7 +11,7 @@
     </Actions>
 </PageHeader>
 
-<PageState Loading="_items is null" Error="@_error">
+<PageState Loading="_items is null" Error="@_error" OnRetry="LoadAsync">
     <MudTable Items="_items" Hover="true" Elevation="1" Breakpoint="Breakpoint.Sm">
         <HeaderContent>
             <MudTh>Name</MudTh>
@@ -32,7 +32,11 @@
                 <MudTooltip Text="Löschen"><MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" OnClick="() => DeleteAsync(context)" /></MudTooltip>
             </MudTd>
         </RowTemplate>
-        <NoRecordsContent><MudText>Noch keine Konferenzen.</MudText></NoRecordsContent>
+        <NoRecordsContent>
+            <EmptyState Icon="@Icons.Material.Outlined.EventBusy" Title="Noch keine Konferenzen" Text="Lege die erste Konferenz an, um Tracks, Räume und Sessions zu planen.">
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add" OnClick="() => EditAsync(null)">Neue Konferenz</MudButton>
+            </EmptyState>
+        </NoRecordsContent>
     </MudTable>
 </PageState>
 
@@ -44,6 +48,7 @@
 
     private async Task LoadAsync()
     {
+        _error = null;
         try { _items = await Api.GetConferencesAsync(); }
         catch (ApiException ex) { _error = ex.Message; }
     }
