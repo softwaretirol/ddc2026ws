@@ -1,6 +1,6 @@
 @page "/konferenzen/{Slug}"
 @using System.Globalization
-@inject ApiClient Api
+@inject AgendaCache AgendaCache
 @inject NavigationManager Nav
 @inject TimeProvider Clock
 @implements IDisposable
@@ -83,10 +83,10 @@
     else
     {
         <div class="agenda-view-list">
-            <AgendaList Sessions="daySessions" Rooms="_agenda.Rooms" Slug="@Slug" MarkSessionsForAll="markForAll" />
+            <AgendaList Sessions="daySessions" Rooms="_agenda.Rooms" Slug="@Slug" MarkSessionsForAll="markForAll" LinkQuery="@DetailQuery" />
         </div>
         <div class="agenda-view-grid">
-            <AgendaGrid Sessions="daySessions" Rooms="_agenda.Rooms" Slug="@Slug" MarkSessionsForAll="markForAll"
+            <AgendaGrid Sessions="daySessions" Rooms="_agenda.Rooms" Slug="@Slug" MarkSessionsForAll="markForAll" LinkQuery="@DetailQuery"
                         Now="@(_day == _today ? _now : null)" />
         </div>
     }
@@ -146,7 +146,7 @@
         _loadedSlug = Slug;
         try
         {
-            _agenda = await Api.GetAgendaAsync(Slug);
+            _agenda = await AgendaCache.GetAsync(Slug);
             _breadcrumbs = [new("Konferenzen", "/"), new(_agenda.Conference.Name, null, disabled: true)];
             ApplyQuery();
         }
@@ -208,6 +208,11 @@
     /// <summary>Während einer Suche steht die Trefferzahl am Tagesbutton („Di · 2“).</summary>
     private string DayLabel(DateOnly day) =>
         IsSearching ? $"{Format.DayShort(day)} · {SessionsFor(day).Count}" : Format.DayShort(day);
+
+    // Aktueller Tag/Track-Filter wird an die Detail-Links gehängt, damit „Zur Agenda“
+    // dorthin zurückführt (gleiche Parameter wie die Agenda-URL: tag=yyyy-MM-dd, track=Id).
+    private string DetailQuery =>
+        $"?tag={_day.ToString(DayFormat, CultureInfo.InvariantCulture)}" + (_trackFilter is { } t ? $"&track={t}" : "");
 
     private string FilterAnnouncement
     {

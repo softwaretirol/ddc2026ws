@@ -1,5 +1,10 @@
 @page "/konferenzen/{Slug}/sessions/{Id:int}"
-@inject ApiClient Api
+@using System.Globalization
+@implements IAsyncDisposable
+@inject AgendaCache AgendaCache
+@inject NavigationManager Nav
+@inject IJSRuntime JS
+@inject ISnackbar Snackbar
 
 <PageTitle>@(_session?.Title ?? "Session")</PageTitle>
 
@@ -25,6 +30,13 @@
             <span><MudIcon Icon="@Icons.Material.Outlined.Schedule" Size="Size.Small" />@Format.Range(_session.StartTime, _session.EndTime)</span>
             <span><MudIcon Icon="@Icons.Material.Outlined.MeetingRoom" Size="Size.Small" />@_session.RoomName</span>
         </Meta>
+        <Actions>
+            @* Aktionsleiste (#11); weitere Aktionen wie „Zum Kalender“ (#10) gehören hierher. *@
+            <MudButton Href="@AgendaUrl" Variant="Variant.Text" Color="Color.Primary" Size="Size.Small"
+                       StartIcon="@Icons.Material.Filled.ArrowBack">Zur Agenda</MudButton>
+            <MudButton Variant="Variant.Outlined" Color="Color.Primary" Size="Size.Small"
+                       StartIcon="@Icons.Material.Filled.Share" OnClick="ShareAsync">Teilen</MudButton>
+        </Actions>
     </PageHeader>
 
     @* Randfarbe kommt aus dem Track; Breite/Abstände stehen in .track-accent (app.css). *@
@@ -40,23 +52,78 @@
             <MudStack Row="true" Wrap="Wrap.Wrap" Spacing="4">
                 @foreach (var sp in _session.Speakers)
                 {
-                    <MudPaper Outlined="true" Class="pa-4 d-flex align-center gap-4">
-                        <SpeakerAvatar Name="@sp.Name" PhotoUrl="@sp.PhotoUrl" />
-                        <div>
-                            <MudLink Href="@($"/speaker/{sp.Id}")" Typo="Typo.subtitle1">@sp.Name</MudLink>
-                            <MudText Typo="Typo.body2" Color="Color.Secondary">@sp.Company</MudText>
-                        </div>
-                    </MudPaper>
+                    @* Ganze Karte ist der Link *@
+                    <a class="speaker-card" href="@SpeakerUrl(sp)">
+                        <MudPaper Outlined="true" Class="pa-4 d-flex align-center gap-4">
+                            <SpeakerAvatar Name="@sp.Name" PhotoUrl="@sp.PhotoUrl" />
+                            <div>
+                                <MudText Typo="Typo.subtitle1" Color="Color.Primary">@sp.Name</MudText>
+                                <MudText Typo="Typo.body2" Color="Color.Secondary">@sp.Company</MudText>
+                            </div>
+                        </MudPaper>
+                    </a>
                 }
             </MudStack>
         }
     </MudPaper>
+
+    <div class="session-context">
+        <section>
+            <MudText Typo="Typo.h2" Class="mb-2">Parallel</MudText>
+            @if (_parallel.Count == 0)
+            {
+                <MudText Typo="Typo.body2" Color="Color.Secondary">Zur gleichen Zeit läuft keine andere Session.</MudText>
+            }
+            else
+            {
+                @foreach (var s in _parallel)
+                {
+                    <a class="session-mini" href="@SessionUrl(s)" style="@MiniStyle(s)">
+                        <span class="agenda-time">@Format.Range(s.StartTime, s.EndTime) · @s.RoomName</span>
+                        <span class="agenda-title">@s.Title</span>
+                        @if (s.TrackName is not null)
+                        {
+                            <span class="agenda-track"><span class="color-dot" style="background:@s.TrackColor" aria-hidden="true"></span>@s.TrackName</span>
+                        }
+                    </a>
+                }
+            }
+        </section>
+
+        <section>
+            <MudText Typo="Typo.h2" Class="mb-2">Danach in diesem Raum</MudText>
+            @if (_next.Count == 0)
+            {
+                <MudText Typo="Typo.body2" Color="Color.Secondary">Danach ist an diesem Tag nichts mehr in @_session.RoomName geplant.</MudText>
+            }
+            else
+            {
+                @foreach (var s in _next)
+                {
+                    <a class="session-mini" href="@SessionUrl(s)" style="@MiniStyle(s)">
+                        <span class="agenda-time">@Format.Range(s.StartTime, s.EndTime)</span>
+                        <span class="agenda-title">@s.Title</span>
+                        @if (s.TrackName is not null)
+                        {
+                            <span class="agenda-track"><span class="color-dot" style="background:@s.TrackColor" aria-hidden="true"></span>@s.TrackName</span>
+                        }
+                    </a>
+                }
+            }
+        </section>
+    </div>
     </ChildContent>
 </PageState>
 
 @code {
+    private const int NextInRoomCount = 3;
+
     [Parameter] public string Slug { get; set; } = "";
     [Parameter] public int Id { get; set; }
+
+    // Herkunft auf der Agenda (gleiche Namen wie die Agenda-URL aus #3).
+    [SupplyParameterFromQuery(Name = "tag")] public string? Tag { get; set; }
+    [SupplyParameterFromQuery(Name = "track")] public int? Track { get; set; }
 
     private SessionDto? _session;
     private string? _error;
@@ -64,6 +131,12 @@
     private string _backHref = "/";
     private string _backText = "Zur Startseite";
     private List<BreadcrumbItem> _breadcrumbs = [];
+    private List<SessionDto> _parallel = [];
+    private List<SessionDto> _next = [];
+    private string _originQuery = "";
+    private IJSObjectReference? _shareModule;
+
+    private string AgendaUrl => $"/konferenzen/{Slug}{_originQuery}";
 
     protected override Task OnParametersSetAsync() => LoadAsync();
 
@@ -74,7 +147,8 @@
         _notFound = false;
         try
         {
-            var agenda = await Api.GetAgendaAsync(Slug);
+            // Aus dem Cache: Agenda → Detail → Agenda lädt nur einmal.
+            var agenda = await AgendaCache.GetAsync(Slug);
             _session = agenda.Sessions.FirstOrDefault(s => s.Id == Id);
             if (_session is null)
             {
@@ -82,7 +156,21 @@
                 (_backHref, _backText) = ($"/konferenzen/{Slug}", "Zur Agenda");
                 return;
             }
-            _breadcrumbs = [new("Konferenzen", "/"), new(agenda.Conference.Name, $"/konferenzen/{Slug}"), new(_session.Title, null, disabled: true)];
+
+            _originQuery = BuildOriginQuery(_session);
+            _breadcrumbs = [new("Konferenzen", "/"), new(agenda.Conference.Name, AgendaUrl), new(_session.Title, null, disabled: true)];
+
+            var current = _session;
+            var sameDay = agenda.Sessions.Where(s => s.Day == current.Day && s.Id != current.Id).ToList();
+            _parallel = sameDay
+                .Where(s => s.StartTime < current.EndTime && s.EndTime > current.StartTime)
+                .OrderBy(s => s.StartTime).ThenBy(s => s.RoomName)
+                .ToList();
+            _next = sameDay
+                .Where(s => s.RoomId == current.RoomId && s.StartTime >= current.EndTime)
+                .OrderBy(s => s.StartTime)
+                .Take(NextInRoomCount)
+                .ToList();
         }
         catch (ApiException ex)
         {
@@ -90,5 +178,64 @@
             _error = ex.IsNotFound ? "Diese Konferenz gibt es nicht." : ex.Message;
             (_backHref, _backText) = ("/", "Zur Startseite");
         }
+    }
+
+    /// <summary>
+    /// Query-String für den Rückweg zur Agenda: Tag/Track aus der Herkunfts-URL;
+    /// ohne Angabe (z. B. geteilter Link) der Tag der Session.
+    /// </summary>
+    private string BuildOriginQuery(SessionDto session)
+    {
+        var day = DateOnly.TryParseExact(Tag, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var d)
+            ? d : session.Day;
+        var query = $"?tag={day.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)}";
+        return Track is { } t ? $"{query}&track={t}" : query;
+    }
+
+    // Links zu anderen Sessions behalten die Herkunft, damit „Zur Agenda“ weiterhin dorthin führt.
+    private string SessionUrl(SessionDto s) => $"/konferenzen/{Slug}/sessions/{s.Id}{_originQuery}";
+
+    private static string SpeakerUrl(SpeakerSummaryDto sp) => $"/speaker/{sp.Id}";
+
+    private static string MiniStyle(SessionDto s) => $"border-left-color:{s.TrackColor ?? "var(--mud-palette-gray-default)"}";
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        // Modul vorab laden, damit navigator.share beim Klick noch als Nutzeraktion gilt.
+        if (firstRender)
+        {
+            try { _shareModule = await JS.InvokeAsync<IJSObjectReference>("import", "./js/share.js"); }
+            catch (JSException) { /* Teilen fällt dann beim Klick erneut auf Import zurück */ }
+        }
+    }
+
+    private async Task ShareAsync()
+    {
+        if (_session is null) return;
+
+        // Kanonischer Link ohne Agenda-Herkunft.
+        var url = Nav.ToAbsoluteUri($"konferenzen/{Uri.EscapeDataString(Slug)}/sessions/{_session.Id}").ToString();
+        string result;
+        try
+        {
+            _shareModule ??= await JS.InvokeAsync<IJSObjectReference>("import", "./js/share.js");
+            result = await _shareModule.InvokeAsync<string>("shareOrCopy", _session.Title, url);
+        }
+        catch (JSException) { result = "failed"; }
+
+        switch (result)
+        {
+            case "copied": Snackbar.Add("Link in die Zwischenablage kopiert.", Severity.Success); break;
+            case "shared": Snackbar.Add("Session geteilt.", Severity.Success); break;
+            case "failed": Snackbar.Add($"Teilen nicht möglich. Link: {url}", Severity.Warning); break;
+            // "cancelled": Nutzer hat den Teilen-Dialog geschlossen – keine Meldung.
+        }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (_shareModule is null) return;
+        try { await _shareModule.DisposeAsync(); }
+        catch (JSDisconnectedException) { }
     }
 }

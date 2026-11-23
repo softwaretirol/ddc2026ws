@@ -79,6 +79,8 @@ else
     [Parameter, EditorRequired] public List<SessionDto> Sessions { get; set; } = [];
     [Parameter, EditorRequired] public List<RoomDto> Rooms { get; set; } = [];
     [Parameter, EditorRequired] public string Slug { get; set; } = "";
+    /// <summary>Optionaler Query-String (inkl. „?“) für die Session-Links, z. B. der aktuelle Tag/Filter.</summary>
+    [Parameter] public string? LinkQuery { get; set; }
     /// <summary>Sessions ohne Track als „Für alle“ kennzeichnen (z. B. bei aktivem Track-Filter).</summary>
     [Parameter] public bool MarkSessionsForAll { get; set; }
 
@@ -138,7 +140,7 @@ else
     private static bool ShowAbstract(SessionDto s) =>
         Minutes(s) >= AbstractMinMinutes && !string.IsNullOrWhiteSpace(s.Abstract);
 
-    private string DetailHref(SessionDto s) => $"/konferenzen/{Slug}/sessions/{s.Id}";
+    private string DetailHref(SessionDto s) => $"/konferenzen/{Slug}/sessions/{s.Id}{LinkQuery}";
 
     // Klick bzw. Enter öffnet die Quick-View. Strg/Cmd/Umschalt+Klick öffnet die Detailseite wie gewohnt
     // in einem neuen Tab; Mittelklick und „Link in neuem Tab öffnen“ funktionieren ohnehin, da die Karte ein echter Link bleibt.
