@@ -71,6 +71,9 @@ public static class TrackRoomEndpoints
 
         group.MapDelete("/{id:int}", async Task<IResult> (int conferenceId, int id, ConferenceDbContext db) =>
         {
+            // Erst prüfen, ob der Raum zu dieser Konferenz gehört – sonst 404 statt 409 für fremde Räume.
+            if (!await db.Rooms.AnyAsync(r => r.Id == id && r.ConferenceId == conferenceId))
+                return TypedResults.NotFound();
             if (await db.Sessions.AnyAsync(s => s.RoomId == id))
                 return TypedResults.Problem("Der Raum ist noch Sessions zugeordnet.", statusCode: StatusCodes.Status409Conflict);
             return await db.Rooms.Where(r => r.Id == id && r.ConferenceId == conferenceId).ExecuteDeleteAsync() > 0
