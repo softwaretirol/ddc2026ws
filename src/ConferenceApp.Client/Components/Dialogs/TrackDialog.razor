@@ -1,7 +1,7 @@
 <FormDialog TModel="TrackRequest" Model="Model" OnSave="OnSave">
     <MudTextField @bind-Value="Model.Name" For="@(() => Model.Name)" Label="Name" Required="true" AutoFocus="true" />
-    <div class="d-flex align-center gap-3">
-        <input type="color" @bind="Model.Color" aria-label="Farbe wählen" style="width:48px;height:40px;border:none;background:none;cursor:pointer" />
+    <div class="d-flex align-center gap-4">
+        <input type="color" @bind="Model.Color" aria-label="Farbe wählen" class="color-input" />
         <MudTextField @bind-Value="Model.Color" For="@(() => Model.Color)" Label="Farbe (#RRGGBB)" />
     </div>
 </FormDialog>

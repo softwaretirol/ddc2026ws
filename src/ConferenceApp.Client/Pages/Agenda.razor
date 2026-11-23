@@ -6,7 +6,7 @@
 <PageState Loading="_agenda is null" Error="@_error" NotFound="_notFound" OnRetry="LoadAsync">
     <Skeleton>
         <MudSkeleton Width="160px" Class="mb-1" />
-        <header class="agenda-header">
+        <header class="page-header">
             <MudSkeleton Width="45%" Height="36px" />
             <MudSkeleton Width="30%" />
         </header>
@@ -17,22 +17,15 @@
     </Skeleton>
     <ChildContent>
     @{ var conf = _agenda!.Conference; }
-    <MudBreadcrumbs Items="_breadcrumbs" Class="pa-0 mb-1" />
-
-    <header class="agenda-header">
-        <MudText Typo="Typo.h5" Class="agenda-header-title">@conf.Name</MudText>
-        <div class="agenda-header-meta">
+    <PageHeader Title="@conf.Name" Breadcrumbs="_breadcrumbs" Description="@conf.Description">
+        <Meta>
             <span><MudIcon Icon="@Icons.Material.Outlined.Event" Size="Size.Small" />@Format.DateRange(conf.StartDate, conf.EndDate)</span>
             @if (conf.Location is not null)
             {
                 <span><MudIcon Icon="@Icons.Material.Outlined.Place" Size="Size.Small" />@conf.Location</span>
             }
-        </div>
-        @if (!string.IsNullOrWhiteSpace(conf.Description))
-        {
-            <MudText Typo="Typo.body2" Class="agenda-header-desc prewrap">@conf.Description</MudText>
-        }
-    </header>
+        </Meta>
+    </PageHeader>
 
     @* Eine Toolbar: Tage links, Track-Filter rechts *@
     <div class="agenda-toolbar">
@@ -41,8 +34,8 @@
             {
                 var selected = day == _day;
                 <MudButton Size="Size.Small" Variant="@(selected ? Variant.Filled : Variant.Text)" Color="Color.Primary"
-                           DropShadow="false" role="tab" aria-selected="@(selected ? "true" : "false")"
-                           OnClick="() => _day = day">@Format.Day(day)</MudButton>
+                           DropShadow="false" role="tab" aria-selected="@(selected ? "true" : "false")" Class="agenda-day"
+                           OnClick="() => _day = day">@Format.DayShort(day)</MudButton>
             }
         </div>
 
