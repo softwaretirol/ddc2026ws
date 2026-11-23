@@ -26,10 +26,10 @@
             <MudTd DataLabel="Zeitraum">@Format.DateRange(context.StartDate, context.EndDate)</MudTd>
             <MudTd DataLabel="Ort">@context.Location</MudTd>
             <MudTd Style="text-align:right;white-space:nowrap">
-                <MudTooltip Text="Agenda verwalten"><MudIconButton Icon="@Icons.Material.Filled.ViewTimeline" Href="@($"/admin/konferenzen/{context.Id}")" /></MudTooltip>
-                <MudTooltip Text="Öffentliche Agenda"><MudIconButton Icon="@Icons.Material.Filled.OpenInNew" Href="@($"/konferenzen/{context.Slug}")" /></MudTooltip>
-                <MudTooltip Text="Bearbeiten"><MudIconButton Icon="@Icons.Material.Filled.Edit" OnClick="() => EditAsync(context)" /></MudTooltip>
-                <MudTooltip Text="Löschen"><MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" OnClick="() => DeleteAsync(context)" /></MudTooltip>
+                <MudTooltip Text="Agenda verwalten"><MudIconButton Icon="@Icons.Material.Filled.ViewTimeline" Href="@($"/admin/konferenzen/{context.Id}")" aria-label="Agenda verwalten" /></MudTooltip>
+                <MudTooltip Text="Öffentliche Agenda"><MudIconButton Icon="@Icons.Material.Filled.OpenInNew" Href="@($"/konferenzen/{context.Slug}")" aria-label="Öffentliche Agenda" /></MudTooltip>
+                <MudTooltip Text="Bearbeiten"><MudIconButton Icon="@Icons.Material.Filled.Edit" OnClick="() => EditAsync(context)" aria-label="Bearbeiten" /></MudTooltip>
+                <MudTooltip Text="Löschen"><MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" OnClick="() => DeleteAsync(context)" aria-label="Löschen" /></MudTooltip>
             </MudTd>
         </RowTemplate>
         <NoRecordsContent><MudText>Noch keine Konferenzen.</MudText></NoRecordsContent>
