@@ -1,0 +1,65 @@
+<FormDialog TModel="SessionRequest" Model="Model" OnSave="OnSave">
+    <MudTextField @bind-Value="Model.Title" For="@(() => Model.Title)" Label="Titel" Required="true" AutoFocus="true" />
+
+    <MudSelect T="DateOnly" @bind-Value="Model.Day" Label="Tag" ToStringFunc="Format.Day">
+        @foreach (var day in Format.Days(Conference.StartDate, Conference.EndDate))
+        {
+            <MudSelectItem Value="day">@Format.Day(day)</MudSelectItem>
+        }
+    </MudSelect>
+
+    <MudStack Row="true" Spacing="3">
+        <MudTimePicker @bind-Time="Start" Label="Beginn" AmPm="false" Required="true" />
+        <MudTimePicker @bind-Time="End" Label="Ende" AmPm="false" Required="true" />
+    </MudStack>
+    <ValidationMessage For="@(() => Model.EndTime)" class="mud-error-text mud-typography-caption" />
+
+    <MudSelect T="int" @bind-Value="Model.RoomId" For="@(() => Model.RoomId)" Label="Raum" Required="true"
+               ToStringFunc="@(id => Rooms.FirstOrDefault(r => r.Id == id)?.Name ?? "")">
+        @foreach (var r in Rooms)
+        {
+            <MudSelectItem Value="r.Id">@r.Name</MudSelectItem>
+        }
+    </MudSelect>
+
+    <MudSelect T="int?" @bind-Value="Model.TrackId" Label="Track" Clearable="true"
+               ToStringFunc="@(id => Tracks.FirstOrDefault(t => t.Id == id)?.Name ?? "Kein Track")">
+        <MudSelectItem T="int?" Value="null">Kein Track</MudSelectItem>
+        @foreach (var t in Tracks)
+        {
+            <MudSelectItem T="int?" Value="t.Id"><span class="color-dot" style="background:@t.Color"></span>@t.Name</MudSelectItem>
+        }
+    </MudSelect>
+
+    <MudSelect T="int" Label="Speaker" MultiSelection="true"
+               SelectedValues="Model.SpeakerIds" SelectedValuesChanged="@(v => Model.SpeakerIds = v.ToList())"
+               ToStringFunc="@(id => Speakers.FirstOrDefault(s => s.Id == id)?.Name ?? "")">
+        @foreach (var s in Speakers)
+        {
+            <MudSelectItem Value="s.Id">@s.Name</MudSelectItem>
+        }
+    </MudSelect>
+
+    <MudTextField @bind-Value="Model.Abstract" For="@(() => Model.Abstract)" Label="Abstract" Lines="5" />
+</FormDialog>
+
+@code {
+    [Parameter] public SessionRequest Model { get; set; } = new();
+    [Parameter] public Func<SessionRequest, Task> OnSave { get; set; } = default!;
+    [Parameter] public ConferenceDto Conference { get; set; } = default!;
+    [Parameter] public List<RoomDto> Rooms { get; set; } = [];
+    [Parameter] public List<TrackDto> Tracks { get; set; } = [];
+    [Parameter] public List<SpeakerDto> Speakers { get; set; } = [];
+
+    private TimeSpan? Start
+    {
+        get => Model.StartTime.ToTimeSpan();
+        set { if (value is { } v) Model.StartTime = TimeOnly.FromTimeSpan(v); }
+    }
+
+    private TimeSpan? End
+    {
+        get => Model.EndTime.ToTimeSpan();
+        set { if (value is { } v) Model.EndTime = TimeOnly.FromTimeSpan(v); }
+    }
+}

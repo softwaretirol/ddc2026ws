@@ -1,0 +1,79 @@
+@page "/admin"
+@inject ApiClient Api
+@inject IDialogService Dialogs
+@inject ISnackbar Snackbar
+
+<PageTitle>Admin – Konferenzen</PageTitle>
+
+<div class="d-flex align-center mb-4">
+    <MudText Typo="Typo.h4">Konferenzen verwalten</MudText>
+    <MudSpacer />
+    <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add" OnClick="() => EditAsync(null)">Neue Konferenz</MudButton>
+</div>
+
+<PageState Loading="_items is null" Error="@_error">
+    <MudTable Items="_items" Hover="true" Elevation="1" Breakpoint="Breakpoint.Sm">
+        <HeaderContent>
+            <MudTh>Name</MudTh>
+            <MudTh>Slug</MudTh>
+            <MudTh>Zeitraum</MudTh>
+            <MudTh>Ort</MudTh>
+            <MudTh Style="text-align:right">Aktionen</MudTh>
+        </HeaderContent>
+        <RowTemplate>
+            <MudTd DataLabel="Name"><MudLink Href="@($"/admin/konferenzen/{context.Id}")">@context.Name</MudLink></MudTd>
+            <MudTd DataLabel="Slug">@context.Slug</MudTd>
+            <MudTd DataLabel="Zeitraum">@Format.DateRange(context.StartDate, context.EndDate)</MudTd>
+            <MudTd DataLabel="Ort">@context.Location</MudTd>
+            <MudTd Style="text-align:right;white-space:nowrap">
+                <MudTooltip Text="Agenda verwalten"><MudIconButton Icon="@Icons.Material.Filled.ViewTimeline" Href="@($"/admin/konferenzen/{context.Id}")" /></MudTooltip>
+                <MudTooltip Text="Öffentliche Agenda"><MudIconButton Icon="@Icons.Material.Filled.OpenInNew" Href="@($"/konferenzen/{context.Slug}")" /></MudTooltip>
+                <MudTooltip Text="Bearbeiten"><MudIconButton Icon="@Icons.Material.Filled.Edit" OnClick="() => EditAsync(context)" /></MudTooltip>
+                <MudTooltip Text="Löschen"><MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" OnClick="() => DeleteAsync(context)" /></MudTooltip>
+            </MudTd>
+        </RowTemplate>
+        <NoRecordsContent><MudText>Noch keine Konferenzen.</MudText></NoRecordsContent>
+    </MudTable>
+</PageState>
+
+@code {
+    private List<ConferenceDto>? _items;
+    private string? _error;
+
+    protected override Task OnInitializedAsync() => LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        try { _items = await Api.GetConferencesAsync(); }
+        catch (ApiException ex) { _error = ex.Message; }
+    }
+
+    private async Task EditAsync(ConferenceDto? existing)
+    {
+        var model = existing is null
+            ? new ConferenceRequest()
+            : new ConferenceRequest
+            {
+                Name = existing.Name, Slug = existing.Slug, Description = existing.Description,
+                StartDate = existing.StartDate, EndDate = existing.EndDate, Location = existing.Location,
+            };
+
+        var parameters = new DialogParameters<ConferenceDialog>
+        {
+            { x => x.Model, model },
+            { x => x.OnSave, r => existing is null ? Api.CreateConferenceAsync(r) : Api.UpdateConferenceAsync(existing.Id, r) },
+        };
+
+        if (await Dialogs.ShowFormAsync(existing is null ? "Neue Konferenz" : "Konferenz bearbeiten", parameters))
+        {
+            Snackbar.Add("Gespeichert.", Severity.Success);
+            await LoadAsync();
+        }
+    }
+
+    private async Task DeleteAsync(ConferenceDto c)
+    {
+        if (await Dialogs.ConfirmDeleteAsync(Snackbar, $"Konferenz „{c.Name}“ inkl. aller Tracks, Räume und Sessions löschen?", () => Api.DeleteConferenceAsync(c.Id)))
+            await LoadAsync();
+    }
+}

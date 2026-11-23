@@ -1,0 +1,18 @@
+<FormDialog TModel="SpeakerRequest" Model="Model" OnSave="OnSave">
+    <MudTextField @bind-Value="Model.Name" For="@(() => Model.Name)" Label="Name" Required="true" AutoFocus="true" />
+    <MudTextField @bind-Value="Model.Company" For="@(() => Model.Company)" Label="Firma" />
+    <MudTextField @bind-Value="Model.PhotoUrl" For="@(() => Model.PhotoUrl)" Label="Foto-URL" />
+    <MudTextField @bind-Value="Model.Bio" For="@(() => Model.Bio)" Label="Bio" Lines="4" />
+    <MudTextField @bind-Value="LinksText" Label="Links (einer pro Zeile)" Lines="3" />
+</FormDialog>
+
+@code {
+    [Parameter] public SpeakerRequest Model { get; set; } = new();
+    [Parameter] public Func<SpeakerRequest, Task> OnSave { get; set; } = default!;
+
+    private string LinksText
+    {
+        get => string.Join("\n", Model.Links);
+        set => Model.Links = (value ?? "").Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).ToList();
+    }
+}

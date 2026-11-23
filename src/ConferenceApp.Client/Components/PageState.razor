@@ -1,0 +1,19 @@
+@* Zeigt Lade- bzw. Fehlerzustand; ChildContent erst, wenn geladen. *@
+@if (Error is not null)
+{
+    <MudAlert Severity="Severity.Error" Class="my-4">@Error</MudAlert>
+}
+else if (Loading)
+{
+    <MudProgressLinear Color="Color.Primary" Indeterminate="true" Class="my-4" />
+}
+else
+{
+    @ChildContent
+}
+
+@code {
+    [Parameter] public bool Loading { get; set; }
+    [Parameter] public string? Error { get; set; }
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+}

@@ -1,0 +1,67 @@
+@page "/konferenzen/{Slug}/sessions/{Id:int}"
+@inject ApiClient Api
+
+<PageTitle>@(_session?.Title ?? "Session")</PageTitle>
+
+<PageState Loading="_session is null" Error="@_error">
+    <MudBreadcrumbs Items="_breadcrumbs" Class="px-0 pt-0" />
+
+    <MudPaper Class="pa-6" Elevation="1" Style="@($"border-left:6px solid {_session!.TrackColor ?? "#9E9E9E"}")">
+        @if (_session.TrackName is not null)
+        {
+            <MudText Typo="Typo.overline" Style="@($"color:{_session.TrackColor}")">@_session.TrackName</MudText>
+        }
+        <MudText Typo="Typo.h4" GutterBottom="true">@_session.Title</MudText>
+
+        <div class="d-flex flex-wrap gap-4 mb-4">
+            <MudText Typo="Typo.body1"><MudIcon Icon="@Icons.Material.Filled.Event" Size="Size.Small" Class="mr-1" />@Format.Day(_session.Day)</MudText>
+            <MudText Typo="Typo.body1"><MudIcon Icon="@Icons.Material.Filled.Schedule" Size="Size.Small" Class="mr-1" />@Format.Range(_session.StartTime, _session.EndTime)</MudText>
+            <MudText Typo="Typo.body1"><MudIcon Icon="@Icons.Material.Filled.MeetingRoom" Size="Size.Small" Class="mr-1" />@_session.RoomName</MudText>
+        </div>
+
+        @if (!string.IsNullOrWhiteSpace(_session.Abstract))
+        {
+            <MudText Typo="Typo.body1" Class="prewrap mb-6">@_session.Abstract</MudText>
+        }
+
+        @if (_session.Speakers.Count > 0)
+        {
+            <MudText Typo="Typo.h6" GutterBottom="true">Speaker</MudText>
+            <MudStack Row="true" Wrap="Wrap.Wrap" Spacing="3">
+                @foreach (var sp in _session.Speakers)
+                {
+                    <MudPaper Outlined="true" Class="pa-3 d-flex align-center gap-3">
+                        <SpeakerAvatar Name="@sp.Name" PhotoUrl="@sp.PhotoUrl" />
+                        <div>
+                            <MudLink Href="@($"/speaker/{sp.Id}")" Typo="Typo.subtitle1">@sp.Name</MudLink>
+                            <MudText Typo="Typo.body2" Color="Color.Secondary">@sp.Company</MudText>
+                        </div>
+                    </MudPaper>
+                }
+            </MudStack>
+        }
+    </MudPaper>
+</PageState>
+
+@code {
+    [Parameter] public string Slug { get; set; } = "";
+    [Parameter] public int Id { get; set; }
+
+    private SessionDto? _session;
+    private string? _error;
+    private List<BreadcrumbItem> _breadcrumbs = [];
+
+    protected override async Task OnParametersSetAsync()
+    {
+        _session = null;
+        _error = null;
+        try
+        {
+            var agenda = await Api.GetAgendaAsync(Slug);
+            _session = agenda.Sessions.FirstOrDefault(s => s.Id == Id);
+            if (_session is null) { _error = "Diese Session gibt es nicht."; return; }
+            _breadcrumbs = [new("Konferenzen", "/"), new(agenda.Conference.Name, $"/konferenzen/{Slug}"), new(_session.Title, null, disabled: true)];
+        }
+        catch (ApiException ex) { _error = ex.IsNotFound ? "Diese Konferenz gibt es nicht." : ex.Message; }
+    }
+}
