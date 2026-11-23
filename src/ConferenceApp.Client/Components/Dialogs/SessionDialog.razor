@@ -60,7 +60,9 @@
             <div class="d-flex justify-space-between">
                 @for (var h = _timelineFrom; h <= _timelineTo; h += 2)
                 {
-                    <MudText Typo="Typo.caption" Color="Color.Secondary">@HourLabel(h)</MudText>
+                    @* Lokale Kopie: ChildContent wird erst nach der Schleife gerendert und sähe sonst nur den Endwert. *@
+                    var hour = h;
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">@HourLabel(hour)</MudText>
                 }
             </div>
             @if (_roomDay.Count == 0)

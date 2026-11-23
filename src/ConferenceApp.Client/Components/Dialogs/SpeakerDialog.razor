@@ -4,7 +4,7 @@
     <div class="d-flex align-center gap-3">
         @* Vorschau: Foto nur bei gültiger http(s)-URL, sonst Initialen wie in der öffentlichen Ansicht. *@
         <SpeakerAvatar Name="@Model.Name" PhotoUrl="@PreviewUrl" Size="Size.Large" />
-        <MudTextField @bind-Value="Model.PhotoUrl" For="@(() => Model.PhotoUrl)" Label="Foto-URL" Immediate="true" DebounceInterval="400"
+        <MudTextField @bind-Value="Model.PhotoUrl" For="@(() => Model.PhotoUrl)" Label="Foto-URL"
                       HelperText="Vorschau links" Class="flex-grow-1" />
     </div>
     <MudTextField @bind-Value="Model.Bio" For="@(() => Model.Bio)" Label="Bio" Lines="4" />

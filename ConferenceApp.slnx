@@ -6,4 +6,8 @@
     <Project Path="src/ConferenceApp.ServiceDefaults/ConferenceApp.ServiceDefaults.csproj" />
     <Project Path="src/ConferenceApp.Shared/ConferenceApp.Shared.csproj" />
   </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/ConferenceApp.E2ETests/ConferenceApp.E2ETests.csproj" />
+    <Project Path="tests/ConferenceApp.UnitTests/ConferenceApp.UnitTests.csproj" />
+  </Folder>
 </Solution>

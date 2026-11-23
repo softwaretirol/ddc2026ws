@@ -77,8 +77,10 @@ public static class ScheduleConflicts
         var s = (text ?? "").Trim().Replace('.', ':');
         if (s.Length == 0) return false;
 
+        // „24:00“ liest .NET als 00:00 – im Format HH:mm ist das keine gültige Uhrzeit.
         if (s.Contains(':'))
-            return TimeOnly.TryParseExact(s, ["H:mm", "HH:mm"], CultureInfo.InvariantCulture, DateTimeStyles.None, out time);
+            return !s.StartsWith("24:", StringComparison.Ordinal)
+                && TimeOnly.TryParseExact(s, ["H:mm", "HH:mm"], CultureInfo.InvariantCulture, DateTimeStyles.None, out time);
 
         if (!s.All(char.IsAsciiDigit) || s.Length > 4) return false;
         var value = int.Parse(s, CultureInfo.InvariantCulture);

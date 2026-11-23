@@ -50,6 +50,9 @@ src/
   ConferenceApp.Api/              Minimal APIs (Endpoints/), EF Core (Data/), Migrationen
   ConferenceApp.Client/           Blazor WASM: Pages/ (öffentlich), Pages/Admin/, Components/
   ConferenceApp.Shared/           DTOs und Requests mit Validierung (DataAnnotations)
+tests/
+  ConferenceApp.UnitTests/        xUnit: Validierung, Client-Logik (Format, ApiClient, Agenda, Konflikte, Kontrast), iCal, API-Filter/Mapping
+  ConferenceApp.E2ETests/         xUnit + Testcontainers (Postgres) + Playwright: API über HTTP und UI im Browser
 ```
 
 ## API im Überblick
@@ -75,6 +78,39 @@ Diese Regeln prüft die API:
 
 Fehler liefert die API als ProblemDetails.
 
+## Tests
+
+Die Tests laufen mit xUnit v3 auf der Microsoft Testing Platform (eingestellt in `global.json`).
+
+```powershell
+dotnet test                                            # alle Tests der Solution
+dotnet test --project tests/ConferenceApp.UnitTests    # nur Unit-Tests
+dotnet test --project tests/ConferenceApp.E2ETests     # nur E2E-Tests (API + UI)
+dotnet test --project tests/ConferenceApp.E2ETests --filter-namespace ConferenceApp.E2ETests.Api   # nur API-Tests
+```
+
+**Unit-Tests** (`tests/ConferenceApp.UnitTests`) brauchen weder Datenbank noch Netzwerk. Sie prüfen die Validierung der Requests, die Formatierung im Client, die Fehlerauswertung des `ApiClient`, Pausenerkennung (`AgendaTimeline`), Starttag und „Jetzt“ (`AgendaNow`), Farbkontrast (`ColorContrast`), Konfliktprüfung im Session-Dialog (`ScheduleConflicts`), den iCalendar-Export (`IcsBuilder`), den `ValidationFilter` und das Mapping der API.
+
+**E2E-Tests** (`tests/ConferenceApp.E2ETests`) haben diese Voraussetzungen:
+
+- **Docker Desktop muss laufen.** Pro Testlauf startet Testcontainers einen Postgres-Container und entfernt ihn danach wieder.
+- **Playwright-Chromium:** Die Tests installieren den Browser beim ersten UI-Test selbst. Von Hand geht es nach dem Build so:
+
+  ```powershell
+  dotnet build tests/ConferenceApp.E2ETests
+  pwsh tests/ConferenceApp.E2ETests/bin/Debug/net11.0/playwright.ps1 install chromium
+  # ohne PowerShell 7:
+  powershell -ExecutionPolicy Bypass -File tests/ConferenceApp.E2ETests/bin/Debug/net11.0/playwright.ps1 install chromium
+  ```
+
+So läuft ein E2E-Testlauf ab:
+
+- Die API läuft in-process über `WebApplicationFactory` mit echtem Kestrel auf einem freien Port. `ConnectionStrings:conferencedb` zeigt dabei auf den Container, `ClientOrigin` auf den Test-Client. Beim Start werden Migrationen und Seed angewendet.
+- Der Client wird beim ersten UI-Test per `dotnet publish -c Release` veröffentlicht und von einem kleinen statischen Kestrel-Host auf einem freien Port ausgeliefert, mit SPA-Fallback auf `index.html`. Ein bereits veröffentlichtes `wwwroot` kann man über die Umgebungsvariable `E2E_CLIENT_WWWROOT` vorgeben.
+- Playwright beantwortet `appsettings.json` des Clients per Route, sodass `ApiBaseUrl` auf die Test-API zeigt.
+- Jeder Test legt eigene Konferenzen mit eindeutigem Slug an. Die Seed-Konferenz „Dev Conference 2026“ wird nur gelesen.
+- Schlägt ein UI-Test fehl, liegen Screenshot und Playwright-Trace unter `tests/ConferenceApp.E2ETests/bin/<Konfiguration>/net11.0/TestResults/playwright/`. Den Trace öffnet `pwsh bin/.../playwright.ps1 show-trace <datei>.trace.zip`.
+
 ## Entwicklung
 
 **Neue Migration anlegen:**
@@ -92,4 +128,3 @@ dotnet ef migrations add <Name> --project src/ConferenceApp.Api --output-dir Dat
 - Call for Papers
 - Teilnehmerregistrierung
 - Persönliche Agenda
-- Automatisierte Tests
