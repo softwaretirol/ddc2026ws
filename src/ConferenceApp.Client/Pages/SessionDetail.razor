@@ -31,9 +31,11 @@
             <span><MudIcon Icon="@Icons.Material.Outlined.MeetingRoom" Size="Size.Small" />@_session.RoomName</span>
         </Meta>
         <Actions>
-            @* Aktionsleiste (#11); weitere Aktionen wie „Zum Kalender“ (#10) gehören hierher. *@
+            @* Aktionsleiste: Zur Agenda und Teilen (#11), Zum Kalender (#10). *@
             <MudButton Href="@AgendaUrl" Variant="Variant.Text" Color="Color.Primary" Size="Size.Small"
                        StartIcon="@Icons.Material.Filled.ArrowBack">Zur Agenda</MudButton>
+            <MudButton Variant="Variant.Outlined" Size="Size.Small" Color="Color.Primary" StartIcon="@Icons.Material.Filled.EventAvailable"
+                       OnClick="DownloadIcsAsync" Disabled="_downloading">Zum Kalender</MudButton>
             <MudButton Variant="Variant.Outlined" Color="Color.Primary" Size="Size.Small"
                        StartIcon="@Icons.Material.Filled.Share" OnClick="ShareAsync">Teilen</MudButton>
         </Actions>
@@ -135,6 +137,9 @@
     private List<SessionDto> _next = [];
     private string _originQuery = "";
     private IJSObjectReference? _shareModule;
+    private ConferenceDto? _conference;
+    private IJSObjectReference? _downloadModule;
+    private bool _downloading;
 
     private string AgendaUrl => $"/konferenzen/{Slug}{_originQuery}";
 
@@ -149,7 +154,8 @@
         {
             // Aus dem Cache: Agenda → Detail → Agenda lädt nur einmal.
             var agenda = await AgendaCache.GetAsync(Slug);
-            _session = agenda.Sessions.FirstOrDefault(s => s.Id == Id);
+            _conference = agenda.Conference;
+            _session =agenda.Sessions.FirstOrDefault(s => s.Id == Id);
             if (_session is null)
             {
                 (_notFound, _error) = (true, "Diese Session gibt es nicht.");
@@ -232,10 +238,38 @@
         }
     }
 
+    // Kanonischer Link der Session (ohne Agenda-Herkunft), wird auch in die .ics-Datei geschrieben.
+    private string CanonicalUrl(SessionDto s) =>
+        Nav.ToAbsoluteUri($"konferenzen/{Uri.EscapeDataString(Slug)}/sessions/{s.Id}").ToString();
+
+    /// <summary>Erzeugt die .ics-Datei der Session im Client und bietet sie zum Download an.</summary>
+    private async Task DownloadIcsAsync()
+    {
+        if (_session is null || _conference is null) return;
+        _downloading = true;
+        try
+        {
+            var ics = IcsBuilder.Build(_session.Title, _conference, [_session], CanonicalUrl);
+            _downloadModule ??= await JS.InvokeAsync<IJSObjectReference>("import", "./js/download.js");
+            await _downloadModule.InvokeVoidAsync("downloadText", IcsBuilder.FileName(_session.Title), ics, IcsBuilder.ContentType + ";charset=utf-8");
+        }
+        catch (JSException)
+        {
+            Snackbar.Add("Die Kalenderdatei konnte nicht erstellt werden.", Severity.Error);
+        }
+        finally
+        {
+            _downloading = false;
+        }
+    }
+
     public async ValueTask DisposeAsync()
     {
-        if (_shareModule is null) return;
-        try { await _shareModule.DisposeAsync(); }
-        catch (JSDisconnectedException) { }
+        foreach (var module in new[] { _shareModule, _downloadModule })
+        {
+            if (module is null) continue;
+            try { await module.DisposeAsync(); }
+            catch (JSDisconnectedException) { /* Seite wird bereits entladen */ }
+        }
     }
 }

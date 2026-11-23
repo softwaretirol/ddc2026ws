@@ -1,6 +1,7 @@
 @page "/konferenzen/{Slug}"
 @using System.Globalization
 @inject AgendaCache AgendaCache
+@inject ApiClient Api
 @inject NavigationManager Nav
 @inject TimeProvider Clock
 @implements IDisposable
@@ -29,6 +30,14 @@
                 <span><MudIcon Icon="@Icons.Material.Outlined.Place" Size="Size.Small" />@conf.Location</span>
             }
         </Meta>
+        <Actions>
+            @* Konferenz-Kalender (#10): berücksichtigt den aktiven Track-Filter *@
+            <MudMenu Label="@CalendarLabel()" StartIcon="@Icons.Material.Outlined.CalendarMonth" Size="Size.Small"
+                     Variant="Variant.Text" Color="Color.Primary" Dense="true" AriaLabel="Agenda als Kalender">
+                <MudMenuItem Icon="@Icons.Material.Outlined.Sync" Href="@IcsUrl(webcal: true)" ForceLoad="true">Kalender abonnieren</MudMenuItem>
+                <MudMenuItem Icon="@Icons.Material.Outlined.Download" Href="@IcsUrl(webcal: false)" ForceLoad="true">.ics herunterladen</MudMenuItem>
+            </MudMenu>
+        </Actions>
     </PageHeader>
 
     @* Eine Toolbar: Tage links, Suche, Track-Filter rechts. Die Auswahl steht in der URL (?tag=…&track=…&q=…). *@
@@ -208,6 +217,16 @@
     /// <summary>Während einer Suche steht die Trefferzahl am Tagesbutton („Di · 2“).</summary>
     private string DayLabel(DateOnly day) =>
         IsSearching ? $"{Format.DayShort(day)} · {SessionsFor(day).Count}" : Format.DayShort(day);
+
+    private string CalendarLabel() =>
+        _agenda?.Tracks.FirstOrDefault(t => t.Id == _trackFilter) is { } track ? $"Kalender: {track.Name}" : "Kalender";
+
+    /// <summary>URL des Agenda-Kalenders; webcal:// öffnet direkt den Abo-Dialog der Kalender-App.</summary>
+    private string IcsUrl(bool webcal)
+    {
+        var uri = Api.GetAgendaIcsUri(Slug, _trackFilter);
+        return webcal ? "webcal" + uri.AbsoluteUri[uri.Scheme.Length..] : uri.AbsoluteUri;
+    }
 
     // Aktueller Tag/Track-Filter wird an die Detail-Links gehängt, damit „Zur Agenda“
     // dorthin zurückführt (gleiche Parameter wie die Agenda-URL: tag=yyyy-MM-dd, track=Id).
