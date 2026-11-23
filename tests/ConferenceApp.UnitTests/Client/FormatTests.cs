@@ -7,14 +7,12 @@ public class FormatTests
     [Fact]
     public void Datum_im_deutschen_Format() => Assert.Equal("01.12.2026", Format.Date(new DateOnly(2026, 12, 1)));
 
+    // #18: ausführlich „Di, 01.12.2026“, kompakt „Di 01.12.“ – einheitlich ohne Punkt nach dem Wochentag (unabhängig von ICU).
     [Fact]
-    public void Tag_mit_deutschem_Wochentag()
-    {
-        // 01.12.2026 ist ein Dienstag. Die Abkürzung ("Di" bzw. "Di.") hängt von den ICU-Daten ab.
-        var text = Format.Day(new DateOnly(2026, 12, 1));
-        Assert.StartsWith("Di", text);
-        Assert.EndsWith(", 01.12.2026", text);
-    }
+    public void Tag_mit_deutschem_Wochentag() => Assert.Equal("Di, 01.12.2026", Format.Day(new DateOnly(2026, 12, 1)));
+
+    [Fact]
+    public void Tag_kompakt_fuer_Tabs_und_Listen() => Assert.Equal("Mi 02.12.", Format.DayShort(new DateOnly(2026, 12, 2)));
 
     [Theory]
     [InlineData(9, 0, "09:00")]
@@ -31,9 +29,21 @@ public class FormatTests
     public void Datumsbereich_eintaegig_zeigt_nur_ein_Datum() =>
         Assert.Equal("01.12.2026", Format.DateRange(new DateOnly(2026, 12, 1), new DateOnly(2026, 12, 1)));
 
+    // #18: „DateRange im selben Monat kompakt“
     [Fact]
-    public void Datumsbereich_mehrtaegig() =>
-        Assert.Equal("01.12.–02.12.2026", Format.DateRange(new DateOnly(2026, 12, 1), new DateOnly(2026, 12, 2)));
+    public void Datumsbereich_mehrtaegig_im_selben_Monat_kompakt() =>
+        Assert.Equal("01.–02.12.2026", Format.DateRange(new DateOnly(2026, 12, 1), new DateOnly(2026, 12, 2)));
+
+    // Über den Jahreswechsel muss das Startjahr sichtbar sein (früher offene Frage).
+    [Fact]
+    public void Datumsbereich_ueber_Jahreswechsel_zeigt_beide_Jahre() =>
+        Assert.Equal("28.12.2026–02.01.2027", Format.DateRange(new DateOnly(2026, 12, 28), new DateOnly(2027, 1, 2)));
+
+    [Theory]
+    [InlineData(1, "1 Session")]
+    [InlineData(0, "0 Sessions")]
+    [InlineData(4, "4 Sessions")]
+    public void Anzahl_mit_Einzahl_und_Mehrzahl(int n, string expected) => Assert.Equal(expected, Format.Count(n, "Session", "Sessions"));
 
     [Fact]
     public void Datumsbereich_ueber_Monatsgrenze() =>

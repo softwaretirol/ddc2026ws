@@ -77,6 +77,27 @@ public class ApiClientTests
         Assert.False(ex.IsNotFound);
     }
 
+    // #17: Feldfehler stehen zusätzlich strukturiert zur Verfügung, damit der Dialog sie am Feld zeigt.
+    [Fact]
+    public async Task Validierungsfehler_stehen_pro_Feld_zur_Verfuegung()
+    {
+        var (client, _) = Create(HttpStatusCode.BadRequest,
+            """{"status":400,"errors":{"Slug":["Dieser Slug ist bereits vergeben."]}}""");
+
+        var ex = await Assert.ThrowsAsync<ApiException>(() => client.CreateConferenceAsync(new ConferenceRequest()));
+
+        Assert.Equal(["Dieser Slug ist bereits vergeben."], ex.Errors["Slug"]);
+    }
+
+    [Fact]
+    public async Task Ohne_Validierungsfehler_ist_Errors_leer()
+    {
+        var (client, _) = Create(HttpStatusCode.Conflict, """{"status":409,"detail":"x"}""");
+        var ex = await Assert.ThrowsAsync<ApiException>(() => client.DeleteRoomAsync(1, 2));
+        Assert.Empty(ex.Errors);
+    }
+
+    // #14: Fehlertexte nach Ursache (Netzwerk vs. 404 vs. Serverfehler), deutsch.
     [Fact]
     public async Task NotFound_ohne_Detail_liefert_deutsche_Meldung()
     {
@@ -85,24 +106,8 @@ public class ApiClientTests
         var ex = await Assert.ThrowsAsync<ApiException>(() => client.GetConferenceAsync(4711));
 
         Assert.True(ex.IsNotFound);
-        Assert.Equal("Nicht gefunden.", ex.Message);
-    }
-
-    [Fact]
-    public async Task Titel_wenn_weder_Fehler_noch_Detail()
-    {
-        var (client, _) = Create(HttpStatusCode.InternalServerError, """{"title":"An error occurred while processing your request.","status":500}""");
-        var ex = await Assert.ThrowsAsync<ApiException>(() => client.GetSpeakersAsync());
-        Assert.Equal("An error occurred while processing your request.", ex.Message);
-    }
-
-    [Fact]
-    public async Task Kein_ProblemDetails_Body_liefert_Statuscode()
-    {
-        var (client, _) = Create(HttpStatusCode.BadGateway, "<html>Bad Gateway</html>", "text/html");
-        var ex = await Assert.ThrowsAsync<ApiException>(() => client.GetSpeakersAsync());
-        Assert.Equal(HttpStatusCode.BadGateway, ex.Status);
-        Assert.Equal("Fehler 502.", ex.Message);
+        Assert.Contains("nicht gefunden", ex.Message);
+        Assert.DoesNotContain("Not Found", ex.Message);
     }
 
     [Fact]
@@ -110,19 +115,50 @@ public class ApiClientTests
     {
         var (client, _) = Create(HttpStatusCode.NotFound, null);
         var ex = await Assert.ThrowsAsync<ApiException>(() => client.DeleteSpeakerAsync(1));
-        Assert.Equal("Nicht gefunden.", ex.Message);
+        Assert.Contains("nicht gefunden", ex.Message);
     }
 
     [Fact]
-    public async Task Nicht_erreichbare_API_liefert_ServiceUnavailable()
+    public async Task Serverfehler_liefert_deutsche_Meldung_mit_Statuscode_statt_englischem_Titel()
     {
-        var handler = new FakeHandler(_ => throw new HttpRequestException("connection refused"));
+        var (client, _) = Create(HttpStatusCode.InternalServerError, """{"title":"An error occurred while processing your request.","status":500}""");
+        var ex = await Assert.ThrowsAsync<ApiException>(() => client.GetSpeakersAsync());
+        Assert.Contains("500", ex.Message);
+        Assert.DoesNotContain("An error occurred", ex.Message);
+    }
+
+    [Theory]
+    [InlineData(HttpStatusCode.BadGateway)]
+    [InlineData(HttpStatusCode.ServiceUnavailable)]
+    [InlineData(HttpStatusCode.GatewayTimeout)]
+    public async Task Gateway_Fehler_gelten_als_nicht_erreichbar(HttpStatusCode status)
+    {
+        var (client, _) = Create(status, "<html>Bad Gateway</html>", "text/html");
+        var ex = await Assert.ThrowsAsync<ApiException>(() => client.GetSpeakersAsync());
+        Assert.Equal(status, ex.Status);
+        Assert.Contains("nicht erreichbar", ex.Message);
+    }
+
+    [Fact]
+    public async Task Unbekannter_Client_Fehler_ohne_Body_liefert_Statuscode()
+    {
+        var (client, _) = Create(HttpStatusCode.Forbidden, "<html>nein</html>", "text/html");
+        var ex = await Assert.ThrowsAsync<ApiException>(() => client.GetSpeakersAsync());
+        Assert.Contains("403", ex.Message);
+    }
+
+    [Theory]
+    [InlineData(typeof(HttpRequestException))]
+    [InlineData(typeof(TaskCanceledException))]
+    public async Task Netzwerkfehler_und_Timeout_liefern_ServiceUnavailable(Type exceptionType)
+    {
+        var handler = new FakeHandler(_ => throw (Exception)Activator.CreateInstance(exceptionType)!);
         var client = new ApiClient(new HttpClient(handler) { BaseAddress = new Uri("http://api.test/") });
 
         var ex = await Assert.ThrowsAsync<ApiException>(() => client.GetConferencesAsync());
 
         Assert.Equal(HttpStatusCode.ServiceUnavailable, ex.Status);
-        Assert.Equal("Die API ist nicht erreichbar.", ex.Message);
+        Assert.Contains("nicht erreichbar", ex.Message);
     }
 
     [Fact]

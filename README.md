@@ -51,7 +51,7 @@ src/
   ConferenceApp.Client/           Blazor WASM: Pages/ (öffentlich), Pages/Admin/, Components/
   ConferenceApp.Shared/           DTOs und Requests mit Validierung (DataAnnotations)
 tests/
-  ConferenceApp.UnitTests/        xUnit: Validierung, Formatierung, ApiClient, ValidationFilter, Mapping
+  ConferenceApp.UnitTests/        xUnit: Validierung, Client-Logik (Format, ApiClient, Agenda, Konflikte, Kontrast), iCal, API-Filter/Mapping
   ConferenceApp.E2ETests/         xUnit + Testcontainers (Postgres) + Playwright: API über HTTP und UI im Browser
 ```
 
@@ -89,7 +89,7 @@ dotnet test --project tests/ConferenceApp.E2ETests     # nur E2E-Tests (API + UI
 dotnet test --project tests/ConferenceApp.E2ETests --filter-namespace ConferenceApp.E2ETests.Api   # nur API-Tests
 ```
 
-**Unit-Tests** (`tests/ConferenceApp.UnitTests`) brauchen weder Datenbank noch Netzwerk. Sie prüfen die Validierung der Requests, die Formatierung im Client, die Fehlerauswertung des `ApiClient`, den `ValidationFilter` und das Mapping der API.
+**Unit-Tests** (`tests/ConferenceApp.UnitTests`) brauchen weder Datenbank noch Netzwerk. Sie prüfen die Validierung der Requests, die Formatierung im Client, die Fehlerauswertung des `ApiClient`, Pausenerkennung (`AgendaTimeline`), Starttag und „Jetzt“ (`AgendaNow`), Farbkontrast (`ColorContrast`), Konfliktprüfung im Session-Dialog (`ScheduleConflicts`), den iCalendar-Export (`IcsBuilder`), den `ValidationFilter` und das Mapping der API.
 
 **E2E-Tests** (`tests/ConferenceApp.E2ETests`) haben diese Voraussetzungen:
 

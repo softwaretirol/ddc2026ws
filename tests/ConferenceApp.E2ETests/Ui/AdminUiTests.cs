@@ -66,6 +66,27 @@ public class AdminUiTests(E2EFixture fixture) : UiTestBase(fixture)
         Assert.Equal(name, agenda.Conference.Name);
     }
 
+    // #17: Slug aus dem Namen vorschlagen, solange nicht manuell geändert; Ergebnis passt zum Slug-Format der API.
+    [Fact]
+    public async Task Slug_wird_aus_dem_Namen_vorgeschlagen_inklusive_Umlauten()
+    {
+        await GotoAsync("/admin");
+        await Button("Neue Konferenz").ClickAsync();
+        var dialog = Dialog("Neue Konferenz");
+        var slug = Field(dialog, "Slug (für die URL)");
+
+        await Field(dialog, "Name").FillAsync("Größte Österreich-Tage: Über .NET 2027");
+        await Field(dialog, "Name").PressAsync("Tab");
+        await Expect(slug).ToHaveValueAsync("groesste-oesterreich-tage-ueber-net-2027");
+
+        // Manuell geänderter Slug wird nicht mehr überschrieben
+        await slug.FillAsync("mein-slug");
+        await slug.PressAsync("Tab");
+        await Field(dialog, "Name").FillAsync("Ganz anderer Name");
+        await Field(dialog, "Name").PressAsync("Tab");
+        await Expect(slug).ToHaveValueAsync("mein-slug");
+    }
+
     [Fact]
     public async Task Raum_Track_und_Session_anlegen()
     {
@@ -157,16 +178,28 @@ public class AdminUiTests(E2EFixture fixture) : UiTestBase(fixture)
     {
         var conf = await CreateConferenceAsync();
         var room = await CreateRoomAsync(conf.Id, "Konfliktraum");
-        // Der Dialog schlägt den ersten Konferenztag, den ersten Raum und 09:00–10:00 vor.
         await CreateSessionAsync(conf.Id, Session(room.Id, conf.StartDate, 9, 30, 10, 30, title: "Bestehende Session"));
 
         await GotoAsync($"/admin/konferenzen/{conf.Id}");
         await Button("Neue Session").ClickAsync();
         var dialog = Dialog("Neue Session");
         await Field(dialog, "Titel").FillAsync("Kollidierende Session");
-        await dialog.GetByRole(AriaRole.Button, new() { Name = "Speichern" }).ClickAsync();
+        // #15: Vorschlag ist frei (Beginn = Ende der letzten Session); eine überlappende Zeit wird live als „Raum belegt“ gemeldet.
+        await Expect(Field(dialog, "Beginn")).ToHaveValueAsync("10:30");
+        // Beginn 09:00 bei 60 min Dauer überschneidet sich mit 09:30–10:30.
+        await Field(dialog, "Beginn").FillAsync("09:00");
+        await Field(dialog, "Beginn").PressAsync("Tab");
 
-        await Expect(dialog.GetByText(new Regex("Überschneidung im Raum mit „Bestehende Session“"))).ToBeVisibleAsync();
+        await Expect(dialog.GetByText("Raum belegt: „Bestehende Session“ (09:30–10:30)").First).ToBeVisibleAsync();
+
+        // Mini-Zeitleiste: Stundenbeschriftungen aufsteigend und verschieden (früher stand überall dieselbe Uhrzeit).
+        var hourLabels = await dialog.GetByText(new Regex(@"^\d{2}:00$")).AllInnerTextsAsync();
+        Assert.True(hourLabels.Count >= 2, string.Join(" ", hourLabels));
+        Assert.Equal(hourLabels.Order(StringComparer.Ordinal), hourLabels);
+        Assert.Equal(hourLabels.Count, hourLabels.Distinct().Count());
+
+        // Speichern ist blockiert, wie bei der API-Regel
+        await dialog.GetByRole(AriaRole.Button, new() { Name = "Speichern" }).ClickAsync();
         await Expect(dialog).ToBeVisibleAsync();
 
         var count = await Fixture.WithDbAsync(db => db.Sessions.CountAsync(s => s.ConferenceId == conf.Id, Ct));
@@ -199,7 +232,7 @@ public class AdminUiTests(E2EFixture fixture) : UiTestBase(fixture)
     }
 
     [Fact]
-    public async Task Raum_mit_Sessions_loeschen_zeigt_Fehler_und_Raum_bleibt()
+    public async Task Raum_mit_Sessions_kann_nicht_geloescht_werden()
     {
         var conf = await CreateConferenceAsync();
         var room = await CreateRoomAsync(conf.Id, "Belegter Raum");
@@ -208,10 +241,11 @@ public class AdminUiTests(E2EFixture fixture) : UiTestBase(fixture)
         await GotoAsync($"/admin/konferenzen/{conf.Id}");
         await OpenTabAsync("Räume");
         var row = Page.GetByRole(AriaRole.Row).Filter(new() { HasText = "Belegter Raum" });
-        await row.GetByRole(AriaRole.Button, new() { Name = "Löschen" }).ClickAsync();
-        await Dialog("Löschen bestätigen").GetByRole(AriaRole.Button, new() { Name = "Löschen" }).ClickAsync();
 
-        await Expect(Page.GetByText("Der Raum ist noch Sessions zugeordnet.")).ToBeVisibleAsync();
+        // #20: Die Folge wird vorab gezeigt – Löschen ist gesperrt und nennt den Grund (statt erst 409 nach dem Klick).
+        var delete = row.GetByRole(AriaRole.Button, new() { NameRegex = new Regex("^Löschen") });
+        await Expect(delete).ToBeDisabledAsync();
+        await Expect(delete).ToHaveAccessibleNameAsync(new Regex("1 Session"));
         await Expect(row).ToBeVisibleAsync();
         await AssertStatusAsync(HttpStatusCode.OK, Http.GetAsync($"api/conferences/{conf.Id}/rooms/{room.Id}", Ct));
     }
@@ -228,7 +262,14 @@ public class AdminUiTests(E2EFixture fixture) : UiTestBase(fixture)
         await row.GetByRole(AriaRole.Button, new() { Name = "Löschen" }).ClickAsync();
         var confirm = Dialog("Löschen bestätigen");
         await Expect(confirm).ToContainTextAsync(conf.Name);
-        await confirm.GetByRole(AriaRole.Button, new() { Name = "Löschen" }).ClickAsync();
+
+        // #20: Bestätigen erst nach Eingabe des Konferenznamens
+        var confirmButton = confirm.GetByRole(AriaRole.Button, new() { Name = "Löschen" });
+        await Expect(confirmButton).ToBeDisabledAsync();
+        await confirm.GetByLabel("Name").FillAsync(conf.Name[..^1]);
+        await Expect(confirmButton).ToBeDisabledAsync();
+        await confirm.GetByLabel("Name").FillAsync(conf.Name);
+        await confirmButton.ClickAsync();
 
         await Expect(row).ToHaveCountAsync(0);
         await AssertStatusAsync(HttpStatusCode.NotFound, Http.GetAsync($"api/conferences/{conf.Id}", Ct));
