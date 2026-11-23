@@ -1,5 +1,6 @@
 @page "/speaker/{Id:int}"
 @inject ApiClient Api
+@inject TimeProvider Clock
 
 <PageTitle>@(_detail?.Speaker.Name ?? "Speaker")</PageTitle>
 
@@ -22,7 +23,7 @@
     <ChildContent>
     @{ var sp = _detail!.Speaker; }
     <PageHeader Title="@sp.Name" Breadcrumbs="_breadcrumbs">
-        <Leading><SpeakerAvatar Name="@sp.Name" PhotoUrl="@sp.PhotoUrl" Size="Size.Large" /></Leading>
+        <Leading><SpeakerAvatar Name="@sp.Name" PhotoUrl="@sp.PhotoUrl" Size="Size.Large" Decorative="true" /></Leading>
         <Meta>
             @if (!string.IsNullOrWhiteSpace(sp.Company))
             {
@@ -37,12 +38,23 @@
             <MudText Typo="Typo.body1" Class="prewrap mb-4">@sp.Bio</MudText>
         }
 
-        @if (sp.Links.Count > 0)
+        @if (_links.Count > 0)
         {
             <div class="d-flex flex-wrap gap-2 mb-4">
-                @foreach (var link in sp.Links)
+                @foreach (var link in _links)
                 {
-                    <MudButton Href="@link" Target="_blank" Variant="Variant.Outlined" Size="Size.Small" StartIcon="@Icons.Material.Filled.Link">@link</MudButton>
+                    if (link.Href is null)
+                    {
+                        @* Ungültige URL: nur als Text anzeigen, nicht verlinken *@
+                        <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Icon="@Icons.Material.Filled.LinkOff">@link.Label</MudChip>
+                    }
+                    else
+                    {
+                        <MudButton Href="@link.Href" Target="_blank" Rel="noopener noreferrer" Variant="Variant.Outlined" Size="Size.Small"
+                                   StartIcon="@link.Icon" EndIcon="@Icons.Material.Filled.OpenInNew" title="@($"{link.Href} (öffnet in neuem Tab)")">
+                            @link.Label<span class="sr-only"> (öffnet in neuem Tab)</span>
+                        </MudButton>
+                    }
                 }
             </div>
         }
@@ -54,17 +66,28 @@
         }
         else
         {
-            <MudList T="string" Dense="true">
-                @foreach (var s in _detail.Sessions)
-                {
-                    <MudListItem T="string" Href="@($"/konferenzen/{s.ConferenceSlug}/sessions/{s.Id}")" Icon="@Icons.Material.Filled.Mic">
-                        <MudText Typo="Typo.subtitle1">@s.Title</MudText>
-                        <MudText Typo="Typo.body2" Color="Color.Secondary">
-                            @s.ConferenceName · @Format.DayShort(s.Day) · @Format.Range(s.StartTime, s.EndTime) · @s.RoomName
-                        </MudText>
-                    </MudListItem>
-                }
-            </MudList>
+            @* Nach Konferenz gruppiert; Konferenzen mit kommenden Sessions zuerst *@
+            @foreach (var group in _groups)
+            {
+                <div class="d-flex align-center gap-2 mt-3">
+                    <MudLink Href="@($"/konferenzen/{group.Slug}")" Typo="Typo.subtitle1">@group.Name</MudLink>
+                    @if (!group.Upcoming)
+                    {
+                        <MudChip T="string" Size="Size.Small" Variant="Variant.Text">vergangen</MudChip>
+                    }
+                </div>
+                <MudList T="string" Dense="true">
+                    @foreach (var s in group.Sessions)
+                    {
+                        <MudListItem T="string" Href="@($"/konferenzen/{s.ConferenceSlug}/sessions/{s.Id}")" Icon="@Icons.Material.Filled.Mic">
+                            <MudText Typo="Typo.subtitle1">@s.Title</MudText>
+                            <MudText Typo="Typo.body2" Color="Color.Secondary">
+                                @Format.DayShort(s.Day) · @Format.Range(s.StartTime, s.EndTime) · @s.RoomName
+                            </MudText>
+                        </MudListItem>
+                    }
+                </MudList>
+            }
         }
     </MudPaper>
     </ChildContent>
@@ -77,6 +100,11 @@
     private string? _error;
     private bool _notFound;
     private List<BreadcrumbItem> _breadcrumbs = [];
+    private List<LinkView> _links = [];
+    private List<SessionGroup> _groups = [];
+
+    private sealed record LinkView(string? Href, string Label, string Icon);
+    private sealed record SessionGroup(string Name, string Slug, bool Upcoming, List<SpeakerSessionDto> Sessions);
 
     protected override Task OnParametersSetAsync() => LoadAsync();
 
@@ -89,11 +117,57 @@
         {
             _detail = await Api.GetSpeakerAsync(Id);
             _breadcrumbs = [new("Speaker", "/speaker"), new(_detail.Speaker.Name, null, disabled: true)];
+            _links = _detail.Speaker.Links.Where(l => !string.IsNullOrWhiteSpace(l)).Select(ToLinkView).ToList();
+            _groups = GroupSessions(_detail.Sessions, DateOnly.FromDateTime(Clock.GetLocalNow().DateTime));
         }
         catch (ApiException ex)
         {
             _notFound = ex.IsNotFound;
             _error = ex.IsNotFound ? "Diesen Speaker gibt es nicht." : ex.Message;
         }
+    }
+
+    /// <summary>
+    /// Zeigt statt der vollen URL nur den Host (ohne "www.") und wählt das Icon nach Host.
+    /// Fehlt das Schema, wird https angenommen; alles andere als http(s) gilt als ungültig und wird nicht verlinkt.
+    /// </summary>
+    private static LinkView ToLinkView(string raw)
+    {
+        var text = raw.Trim();
+        if (!text.Contains("://")) text = "https://" + text;
+
+        if (!Uri.TryCreate(text, UriKind.Absolute, out var uri)
+            || (uri.Scheme != Uri.UriSchemeHttp && uri.Scheme != Uri.UriSchemeHttps)
+            || string.IsNullOrEmpty(uri.Host))
+        {
+            return new LinkView(null, raw.Trim(), Icons.Material.Filled.LinkOff);
+        }
+
+        var host = uri.Host.StartsWith("www.", StringComparison.OrdinalIgnoreCase) ? uri.Host[4..] : uri.Host;
+        var lower = host.ToLowerInvariant();
+        var icon = lower == "github.com" ? Icons.Custom.Brands.GitHub
+            : lower == "linkedin.com" || lower.EndsWith(".linkedin.com") ? Icons.Custom.Brands.LinkedIn
+            : Icons.Material.Filled.Language;
+        return new LinkView(uri.AbsoluteUri, host, icon);
+    }
+
+    /// <summary>
+    /// Gruppiert nach Konferenz. Konferenzen mit kommenden Sessions zuerst (nächste zuerst),
+    /// danach vergangene (jüngste zuerst). Innerhalb einer Konferenz chronologisch.
+    /// </summary>
+    private static List<SessionGroup> GroupSessions(List<SpeakerSessionDto> sessions, DateOnly today)
+    {
+        var groups = sessions
+            .GroupBy(s => s.ConferenceSlug)
+            .Select(g =>
+            {
+                var ordered = g.OrderBy(s => s.Day).ThenBy(s => s.StartTime).ToList();
+                return new SessionGroup(ordered[0].ConferenceName, g.Key, ordered[^1].Day >= today, ordered);
+            })
+            .ToList();
+
+        return groups.Where(g => g.Upcoming).OrderBy(g => g.Sessions[0].Day)
+            .Concat(groups.Where(g => !g.Upcoming).OrderByDescending(g => g.Sessions[^1].Day))
+            .ToList();
     }
 }

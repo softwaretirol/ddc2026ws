@@ -566,7 +566,55 @@ html, body {
     color: var(--mud-palette-primary);
 }
 
+/* ---------- Speaker-Übersicht ---------- */
+.speaker-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px 16px;
+    margin-bottom: 8px;
+}
+
+.speaker-search { flex: 1 1 260px; max-width: 420px; }
+.speaker-conference { flex: 0 1 260px; }
+
+/* Speaker-Liste: ganze Karte klickbar: der Namens-Link deckt die Karte per ::after ab (Stretched-Link) */
+.speaker-list-card {
+    position: relative;
+    transition: box-shadow .15s, transform .15s;
+}
+
+.speaker-list-card:hover {
+    box-shadow: var(--mud-elevation-4);
+    transform: translateY(-1px);
+}
+
+.speaker-card-link {
+    color: var(--mud-palette-primary);
+    text-decoration: none;
+}
+
+.speaker-card-link::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+}
+
+.speaker-list-card:hover .speaker-card-link { text-decoration: underline; }
+.speaker-card-link:focus-visible { outline: none; }
+.speaker-list-card:focus-within { outline: 2px solid var(--mud-palette-primary); outline-offset: 2px; }
+
+.line-clamp-2 {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
 /* ---------- Diverses ---------- */
+
 .color-dot {
     display: inline-block;
     width: 14px;

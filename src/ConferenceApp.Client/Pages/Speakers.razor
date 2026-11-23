@@ -1,5 +1,6 @@
 @page "/speaker"
 @inject ApiClient Api
+@inject AgendaCache AgendaCache
 
 <PageTitle>Speaker</PageTitle>
 
@@ -32,36 +33,124 @@
     }
     else
     {
-    <MudGrid>
-        @foreach (var s in _speakers!)
+        @* Suche und Konferenzfilter *@
+        <div class="speaker-toolbar">
+            <MudTextField T="string" @bind-Value="_search" Immediate="true" DebounceInterval="200" Clearable="true"
+                          Placeholder="Name oder Firma suchen" Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search"
+                          Variant="Variant.Outlined" Margin="Margin.Dense" aria-label="Speaker suchen" Class="speaker-search" />
+            @if (_conferences.Count > 0)
+            {
+                <MudSelect T="int?" @bind-Value="_conferenceFilter" Label="Konferenz" Variant="Variant.Outlined" Margin="Margin.Dense"
+                           Dense="true" Class="speaker-conference">
+                    <MudSelectItem T="int?" Value="null">Alle Konferenzen</MudSelectItem>
+                    @foreach (var c in _conferences)
+                    {
+                        <MudSelectItem T="int?" Value="c.Id">@c.Name</MudSelectItem>
+                    }
+                </MudSelect>
+            }
+        </div>
+
+        var filtered = Filtered();
+        <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-2" aria-live="polite">
+            @filtered.Count von @_speakers.Count Speaker
+        </MudText>
+
+        @if (filtered.Count == 0)
         {
-            <MudItem xs="12" sm="6" md="4" lg="3">
-                <MudCard Elevation="1" Class="h-100">
-                    <MudCardHeader>
-                        <CardHeaderAvatar><SpeakerAvatar Name="@s.Name" PhotoUrl="@s.PhotoUrl" Size="Size.Large" /></CardHeaderAvatar>
-                        <CardHeaderContent>
-                            <MudLink Href="@($"/speaker/{s.Id}")" Typo="Typo.h6">@s.Name</MudLink>
-                            <MudText Typo="Typo.body2" Color="Color.Secondary">@s.Company</MudText>
-                        </CardHeaderContent>
-                    </MudCardHeader>
-                </MudCard>
-            </MudItem>
+            <EmptyState Icon="@Icons.Material.Outlined.SearchOff" Title="Keine Speaker gefunden"
+                        Text="Passe Suche oder Konferenzfilter an." />
         }
-    </MudGrid>
+        else
+        {
+            <MudGrid>
+                @foreach (var s in filtered)
+                {
+                    <MudItem xs="12" sm="6" md="4" lg="3">
+                        <MudCard Elevation="1" Class="h-100 speaker-list-card">
+                            <MudCardHeader>
+                                <CardHeaderAvatar><SpeakerAvatar Name="@s.Name" PhotoUrl="@s.PhotoUrl" Size="Size.Large" Decorative="true" /></CardHeaderAvatar>
+                                <CardHeaderContent>
+                                    @* Stretched-Link: der Namens-Link deckt per ::after die ganze Karte ab *@
+                                    <a href="@($"/speaker/{s.Id}")" class="speaker-card-link mud-typography mud-typography-h6">@s.Name</a>
+                                    <MudText Typo="Typo.body2" Color="Color.Secondary">@s.Company</MudText>
+                                </CardHeaderContent>
+                            </MudCardHeader>
+                            @if (!string.IsNullOrWhiteSpace(s.Bio))
+                            {
+                                <MudCardContent Class="pt-0">
+                                    <MudText Typo="Typo.body2" Class="line-clamp-2">@s.Bio</MudText>
+                                </MudCardContent>
+                            }
+                        </MudCard>
+                    </MudItem>
+                }
+            </MudGrid>
+        }
     }
     </ChildContent>
 </PageState>
 
 @code {
     private List<SpeakerDto>? _speakers;
+    private List<ConferenceDto> _conferences = [];
+    // Speaker-Id -> Ids der Konferenzen, in denen der Speaker eine Session hat (aus den Agenden ermittelt)
+    private readonly Dictionary<int, HashSet<int>> _speakerConferences = [];
     private string? _error;
+    private string? _search;
+    private int? _conferenceFilter;
 
     protected override Task OnInitializedAsync() => LoadAsync();
 
     private async Task LoadAsync()
     {
         _error = null;
-        try { _speakers = await Api.GetSpeakersAsync(); }
+        try
+        {
+            var speakersTask = Api.GetSpeakersAsync();
+            var conferencesTask = Api.GetConferencesAsync();
+            _speakers = await speakersTask;
+            await LoadConferenceMappingAsync(await conferencesTask);
+        }
         catch (ApiException ex) { _error = ex.Message; }
+    }
+
+    /// <summary>
+    /// Ordnet Speaker ihren Konferenzen zu. Die API liefert diese Zuordnung nicht direkt,
+    /// daher wird die Agenda jeder Konferenz geladen (über den AgendaCache aus #11).
+    /// Schlägt eine Agenda fehl, fehlt nur diese Konferenz im Filter.
+    /// </summary>
+    private async Task LoadConferenceMappingAsync(List<ConferenceDto> conferences)
+    {
+        var agendas = (await Task.WhenAll(conferences.Select(async c =>
+        {
+            try { return await AgendaCache.GetAsync(c.Slug); }
+            catch (ApiException) { return null; }
+        }))).OfType<AgendaDto>().ToList();
+
+        _speakerConferences.Clear();
+        foreach (var agenda in agendas)
+        {
+            foreach (var speaker in agenda.Sessions.SelectMany(s => s.Speakers))
+            {
+                if (!_speakerConferences.TryGetValue(speaker.Id, out var set))
+                    _speakerConferences[speaker.Id] = set = [];
+                set.Add(agenda.Conference.Id);
+            }
+        }
+
+        _conferences = agendas.Select(a => a.Conference).OrderByDescending(c => c.StartDate).ToList();
+    }
+
+    private List<SpeakerDto> Filtered()
+    {
+        var term = _search?.Trim();
+        return _speakers!
+            .Where(s => string.IsNullOrEmpty(term)
+                        || s.Name.Contains(term, StringComparison.CurrentCultureIgnoreCase)
+                        || (s.Company?.Contains(term, StringComparison.CurrentCultureIgnoreCase) ?? false))
+            .Where(s => _conferenceFilter is null
+                        || (_speakerConferences.TryGetValue(s.Id, out var set) && set.Contains(_conferenceFilter.Value)))
+            .ToList();
     }
 }
