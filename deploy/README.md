@@ -25,7 +25,7 @@ Voraussetzung: Der Cluster ist mit `infra/hetzner-talos/terraform` angelegt. Die
 ```powershell
 cd infra/hetzner-talos/bootstrap
 $env:TF_VAR_hcloud_token = (Get-Content ~\Desktop\Hetzner.txt -Raw).Trim()       # Hetzner-API-Token
-$env:TF_VAR_ghcr_token   = (Get-Content ~\Desktop\GitHub-ghcr.txt -Raw).Trim()   # Classic PAT, nur read:packages
+$env:TF_VAR_ghcr_token   = (Get-Content ~\Desktop\GithubPAT.txt -Raw).Trim()      # Classic PAT, nur read:packages
 terraform init
 terraform apply
 ```
@@ -48,7 +48,7 @@ Die Tokens stehen nur im lokalen Terraform-State, nie in Git.
   kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath='{.data.password}'   # base64
   ```
 - **Neue App-Version:** In `apps/conference/kustomization.yaml` `newTag` auf den neuen Tag `sha-<commit>` setzen und auf `main` committen. ArgoCD rollt die Version aus.
-- **Zertifikat:** Der Ingress nutzt zuerst `letsencrypt-staging`. Funktioniert das, auf `letsencrypt-prod` umstellen (Annotation in `apps/conference/ingress.yaml`).
+- **Zertifikat:** Läuft mit `letsencrypt-prod`; cert-manager erneuert es automatisch. Zum Testen neuer Domains erst `letsencrypt-staging` verwenden (Annotation in `apps/conference/ingress.yaml`).
 - **Datenbank:** `kubectl -n conference get cluster conference-db` zeigt den Zustand. Die Zugangsdaten liegen im Secret `conference-db-app`.
 
 ## Wichtig

@@ -1,13 +1,25 @@
 # Plan: ConferenceApp per ArgoCD auf dem Talos-Cluster, erreichbar unter https://ddc2026.giesswein.dev
 
 - **Datum:** 2026-11-23
-- **Status:** Freigegeben, in Umsetzung
+- **Status:** Umgesetzt am 23.11.2026, erreichbar unter https://ddc2026.giesswein.dev (Let's-Encrypt-Production-Zertifikat)
 
 **Entscheidungen vom 23.11.2026:**
 1. **DNS:** Der Nutzer stellt `ddc2026.giesswein.dev` manuell in der Hetzner DNS Console auf die IP des Load Balancers um.
 2. **Schreibzugriff:** **kein Schutz.** Das ist bewusst akzeptiert: Jeder kann über die öffentliche URL Daten anlegen, ändern und löschen. Die Traefik-Middleware entfällt.
 3. **Image:** Pull-Secret `ghcr-pull` im Namespace `conference`. Grundlage ist ein Classic PAT, der nur `read:packages` darf. Terraform liest ihn aus einer lokalen Datei, er steht nie in Git.
 4. **Daten:** Nach dem Deployment wird das DDC-2026-Programm (Sessionize) über die API importiert.
+
+**Abweichungen und Erkenntnisse aus der Umsetzung:**
+- **Flannel nutzte die öffentlichen IPs für VXLAN.** Die Hetzner-Firewall blockt das, deshalb erreichten sich Pods auf verschiedenen Nodes nicht. Auch DNS funktionierte nicht, und ArgoCD konnte nicht synchronisieren.
+  - Fix: Talos-Dokument `KubeFlannelCNIConfig` mit `--iface-can-reach=10.0.0.1`.
+  - Talos rollt die Bootstrap-Manifeste erst mit `talosctl upgrade-k8s --to <aktuelle Version> --endpoint https://<CP-öffentlich>:6443` aus.
+- **`providerID` fehlte.** Die Nodes waren schon registriert, bevor `externalCloudProvider` aktiv wurde, und der CCM hat `spec.providerID` nicht nachgetragen. Ich habe sie einmalig per `kubectl patch node … providerID=hcloud://<server-id>` gesetzt. Bei einem neu aufgebauten Cluster ist das nicht nötig.
+- **Traefik-Chart v42:** Das Schema lässt `service.type` nicht zu. Ohne die Angabe ist der Typ standardmäßig `LoadBalancer`.
+- **DNS-Cache:** CoreDNS bzw. der Upstream-Resolver hatte den alten A-Record mit langer TTL gecacht, und die HTTP-01-Selbstprüfung von cert-manager lief ins Leere. Ein Neustart von CoreDNS hat das behoben.
+- **Ergebnis:**
+  - Load Balancer `conference-ingress` mit `5.222.13.238` und `2a01:4f9:c015:4de::1`
+  - Zertifikat von Let's Encrypt Production
+  - DDC-2026-Programm importiert: 62 Sessions, 53 Speaker, 8 Tracks
 
 ## 1. Ziel
 
@@ -102,20 +114,20 @@ Zusammen **rund 57,50 € pro Monat**.
 
 ## 6. Umsetzungsschritte
 
-1. [ ] Talos: External Cloud Provider aktivieren (Patch prüfen und anwenden, Nodes bleiben erhalten)
-2. [ ] `deploy/`-Struktur mit allen ArgoCD-Applications und Manifests. Helm-Chart-Versionen fest gepinnt.
-3. [ ] Bootstrap-Terraform: Secrets, ArgoCD, Root-Application
-4. [ ] Commit nach `main` (Security-Hook), weil ArgoCD von `main` liest
-5. [ ] `terraform apply` (bootstrap). Warten, bis alle Applications `Synced/Healthy` sind und der Load Balancer eine IP hat.
-6. [ ] **DNS:** A-Record `ddc2026.giesswein.dev` auf die IP des Load Balancers (siehe Entscheidung 1)
-7. [ ] Zertifikat zuerst über `letsencrypt-staging`, danach auf `letsencrypt-prod` umstellen
-8. [ ] Prüfen:
+1. [x] Talos: External Cloud Provider aktivieren (Patch prüfen und anwenden, Nodes bleiben erhalten)
+2. [x] `deploy/`-Struktur mit allen ArgoCD-Applications und Manifests. Helm-Chart-Versionen fest gepinnt.
+3. [x] Bootstrap-Terraform: Secrets, ArgoCD, Root-Application
+4. [x] Commit nach `main` (Security-Hook), weil ArgoCD von `main` liest
+5. [x] `terraform apply` (bootstrap). Warten, bis alle Applications `Synced/Healthy` sind und der Load Balancer eine IP hat.
+6. [x] **DNS:** A-Record `ddc2026.giesswein.dev` auf die IP des Load Balancers (siehe Entscheidung 1)
+7. [x] Zertifikat zuerst über `letsencrypt-staging`, danach auf `letsencrypt-prod` umstellen
+8. [x] Prüfen:
    - `curl -I https://ddc2026.giesswein.dev` (gültiges Zertifikat, HTTP wird auf HTTPS weitergeleitet)
    - Agenda im Browser per Playwright
    - Schreibzugriff ohne Zugangsdaten liefert 401
    - CNPG-Cluster mit 2 Instanzen gesund
-9. [ ] Optional: DDC-Programm importieren (Entscheidung 4)
-10. [ ] README `deploy/README.md`: Betrieb, Updates, Zugang zu ArgoCD, Abbau
+9. [x] Optional: DDC-Programm importieren (Entscheidung 4)
+10. [x] README `deploy/README.md`: Betrieb, Updates, Zugang zu ArgoCD, Abbau
 
 ## 7. Annahmen
 
