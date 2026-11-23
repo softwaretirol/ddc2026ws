@@ -1,3 +1,39 @@
+/* ---------- Farbschema der Lade-Shell ----------
+   Vor dem WASM-Start gibt es noch keine --mud-palette-*-Variablen. Diese Shell-Farben spiegeln die
+   Paletten aus MainLayout.razor und sind die einzigen festen Farben im CSS.
+   Ohne data-theme gilt die Systemeinstellung; js/theme.js setzt data-theme aus der gespeicherten Wahl
+   und später aus dem tatsächlich angezeigten Modus. */
+:root {
+    color-scheme: light;
+    --app-shell-background: #ffffff;
+    --app-shell-text: #424242;
+    --app-shell-track: #e0e0e0;
+    --app-shell-accent: #3949ab;
+}
+
+@media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+        color-scheme: dark;
+        --app-shell-background: #32333d;
+        --app-shell-text: rgba(255, 255, 255, .7);
+        --app-shell-track: rgba(255, 255, 255, .12);
+        --app-shell-accent: #9fa8da;
+    }
+}
+
+:root[data-theme="dark"] {
+    color-scheme: dark;
+    --app-shell-background: #32333d;
+    --app-shell-text: rgba(255, 255, 255, .7);
+    --app-shell-track: rgba(255, 255, 255, .12);
+    --app-shell-accent: #9fa8da;
+}
+
+html {
+    background-color: var(--mud-palette-background, var(--app-shell-background));
+    color: var(--mud-palette-text-primary, var(--app-shell-text));
+}
+
 html, body {
     font-family: Roboto, Helvetica, Arial, sans-serif;
 }
@@ -87,16 +123,16 @@ html, body {
     overflow: hidden;
     background: var(--mud-palette-surface);
     border: 1px solid var(--mud-palette-lines-default);
-    border-left: 5px solid #9E9E9E;
+    border-left: 5px solid var(--mud-palette-gray-default);
     border-radius: 6px;
     color: inherit;
     text-decoration: none;
-    box-shadow: 0 1px 2px rgba(0, 0, 0, .06);
+    box-shadow: var(--mud-elevation-1);
     transition: box-shadow .15s, transform .15s;
 }
 
 .agenda-session:hover {
-    box-shadow: 0 4px 10px rgba(0, 0, 0, .15);
+    box-shadow: var(--mud-elevation-4);
     transform: translateY(-1px);
 }
 
@@ -119,9 +155,11 @@ html, body {
 
 /* ---------- Blazor-Standard: Ladeanzeige & Fehlerleiste ---------- */
 #blazor-error-ui {
-    background: lightyellow;
+    background: var(--mud-palette-surface, var(--app-shell-background));
+    color: var(--mud-palette-text-primary, var(--app-shell-text));
+    border-top: 3px solid var(--mud-palette-error, currentColor);
     bottom: 0;
-    box-shadow: 0 -1px 2px rgba(0, 0, 0, 0.2);
+    box-shadow: var(--mud-elevation-4);
     display: none;
     left: 0;
     padding: 0.6rem 1.25rem 0.7rem 1.25rem;
@@ -148,14 +186,14 @@ html, body {
 
 .loading-progress circle {
     fill: none;
-    stroke: #e0e0e0;
+    stroke: var(--app-shell-track);
     stroke-width: 0.6rem;
     transform-origin: 50% 50%;
     transform: rotate(-90deg);
 }
 
 .loading-progress circle:last-child {
-    stroke: #3949AB;
+    stroke: var(--app-shell-accent);
     stroke-dasharray: calc(3.141 * var(--blazor-load-percentage, 0%) * 0.8), 500%;
     transition: stroke-dasharray 0.05s ease-in-out;
 }

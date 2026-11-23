@@ -6,7 +6,7 @@
 <PageState Loading="_session is null" Error="@_error">
     <MudBreadcrumbs Items="_breadcrumbs" Class="px-0 pt-0" />
 
-    <MudPaper Class="pa-6" Elevation="1" Style="@($"border-left:6px solid {_session!.TrackColor ?? "#9E9E9E"}")">
+    <MudPaper Class="pa-6" Elevation="1" Style="@($"border-left:6px solid {_session!.TrackColor ?? "var(--mud-palette-gray-default)"}")">
         @if (_session.TrackName is not null)
         {
             <MudText Typo="Typo.overline" Style="@($"color:{_session.TrackColor}")">@_session.TrackName</MudText>

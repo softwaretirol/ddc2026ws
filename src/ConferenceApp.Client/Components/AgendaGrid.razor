@@ -28,7 +28,7 @@ else
             {
                 var col = Rooms.FindIndex(r => r.Id == s.RoomId) + 2;
                 <a class="agenda-session" href="@($"/konferenzen/{Slug}/sessions/{s.Id}")"
-                   style="grid-column:@col;grid-row:@(Row(s.StartTime)) / @(Row(s.EndTime));border-left-color:@(s.TrackColor ?? "#9E9E9E")">
+                   style="grid-column:@col;grid-row:@(Row(s.StartTime)) / @(Row(s.EndTime));border-left-color:@(s.TrackColor ?? "var(--mud-palette-gray-default)")">
                     <span class="agenda-time">@Format.Range(s.StartTime, s.EndTime)</span>
                     <span class="agenda-title">@s.Title</span>
                     @if (s.Speakers.Count > 0)

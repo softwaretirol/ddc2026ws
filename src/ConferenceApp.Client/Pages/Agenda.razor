@@ -42,7 +42,7 @@
                 @foreach (var t in _agenda.Tracks)
                 {
                     <MudChip T="string" Size="Size.Small" Variant="@(_trackFilter == t.Id ? Variant.Filled : Variant.Outlined)"
-                             Style="@($"border-color:{t.Color};" + (_trackFilter == t.Id ? $"background:{t.Color};color:#fff" : $"color:{t.Color}"))"
+                             Style="@($"border-color:{t.Color};" + (_trackFilter == t.Id ? $"background:{t.Color};color:var(--mud-palette-white)" : $"color:{t.Color}"))"
                              OnClick="() => _trackFilter = t.Id">@t.Name</MudChip>
                 }
             </div>
