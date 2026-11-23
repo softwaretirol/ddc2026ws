@@ -57,6 +57,15 @@ else
                     }
                 </a>
             }
+
+            @if (Now is { } now && NowRow(now) is { } nowRow)
+            {
+                @* Jetzt-Linie: in die passende 5-Minuten-Zeile gesetzt und minutengenau nach unten versetzt *@
+                <div class="agenda-now" aria-hidden="true"
+                     style="grid-row:@nowRow;grid-column:1 / span @(Rooms.Count + 1);margin-top:@(NowOffset(now))px">
+                    <span class="agenda-now-label">@Format.Time(now)</span>
+                </div>
+            }
         </div>
     </div>
 }
@@ -74,6 +83,9 @@ else
     [Parameter] public bool MarkSessionsForAll { get; set; }
 
     private const int GapHeight = 32;  // Pixel für eine gestauchte Pause
+
+    /// <summary>Aktuelle Uhrzeit – nur gesetzt, wenn der angezeigte Tag heute ist (Jetzt-Linie, laufende Sessions).</summary>
+    [Parameter] public TimeOnly? Now { get; set; }
 
     private TimeOnly _start;
     private TimeOnly _end;
@@ -111,8 +123,17 @@ else
 
     private static double Minutes(SessionDto s) => (s.EndTime - s.StartTime).TotalMinutes;
 
-    private static string CardClass(SessionDto s) =>
-        Minutes(s) <= CompactMaxMinutes ? "agenda-session agenda-session--compact" : "agenda-session";
+    // Kompakte Karte für kurze Sessions (#7), Hervorhebung laufender Sessions, wenn der Tag heute ist (#6).
+    private string CardClass(SessionDto s) =>
+        (Minutes(s) <= CompactMaxMinutes ? "agenda-session agenda-session--compact" : "agenda-session") +
+        (Now is { } now && s.StartTime <= now && now < s.EndTime ? " agenda-session--live" : "");
+
+    // Zeile der Jetzt-Linie oder null, wenn "jetzt" außerhalb des angezeigten Zeitraums liegt.
+    private int? NowRow(TimeOnly now) => now >= _start && now < _end ? Row(now) : null;
+
+    // Minutengenauer Versatz innerhalb der 5-Minuten-Zeile; in einer gestauchten Pause (#2) bleibt die Linie oben.
+    private int NowOffset(TimeOnly now) =>
+        _timeline.IsInGap(now) ? 0 : (int)Math.Round(now.Minute % Slot / (double)Slot * RowHeight);
 
     private static bool ShowAbstract(SessionDto s) =>
         Minutes(s) >= AbstractMinMinutes && !string.IsNullOrWhiteSpace(s.Abstract);

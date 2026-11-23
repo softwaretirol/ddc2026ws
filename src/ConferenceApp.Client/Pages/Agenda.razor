@@ -2,6 +2,8 @@
 @using System.Globalization
 @inject ApiClient Api
 @inject NavigationManager Nav
+@inject TimeProvider Clock
+@implements IDisposable
 
 <PageTitle>@(_agenda?.Conference.Name ?? "Agenda")</PageTitle>
 
@@ -66,6 +68,12 @@
     @* Kündigt Tag- und Filterwechsel für Screenreader an. *@
     <span class="sr-only" role="status" aria-live="polite">@FilterAnnouncement</span>
 
+    @if (AgendaNow.IsConferenceDay(conf, _today))
+    {
+        var todays = SessionsFor(_today);
+        <NowNext Running="AgendaNow.Running(todays, _today, _now)" Next="AgendaNow.Next(todays, _today, _now)" Slug="@Slug" />
+    }
+
     @* Unter 768 px chronologische Liste, ab 768 px Raster. Umschaltung rein per CSS-Media-Query (app.css). *@
     @{ var daySessions = SessionsFor(_day); var markForAll = _trackFilter is not null; }
     @if (IsSearching && daySessions.Count == 0)
@@ -78,7 +86,8 @@
             <AgendaList Sessions="daySessions" Rooms="_agenda.Rooms" Slug="@Slug" MarkSessionsForAll="markForAll" />
         </div>
         <div class="agenda-view-grid">
-            <AgendaGrid Sessions="daySessions" Rooms="_agenda.Rooms" Slug="@Slug" MarkSessionsForAll="markForAll" />
+            <AgendaGrid Sessions="daySessions" Rooms="_agenda.Rooms" Slug="@Slug" MarkSessionsForAll="markForAll"
+                        Now="@(_day == _today ? _now : null)" />
         </div>
     }
     </ChildContent>
@@ -105,6 +114,17 @@
     private DateOnly _day;
     private string _search = "";
     private List<BreadcrumbItem> _breadcrumbs = [];
+
+    // "Heute/Jetzt" aus der lokalen Uhr (im WASM-Client: Browser-Uhr und -Zeitzone), jede Minute aktualisiert.
+    private DateOnly _today;
+    private TimeOnly _now;
+    private readonly CancellationTokenSource _cts = new();
+
+    protected override void OnInitialized()
+    {
+        ReadClock();
+        _ = RunClockAsync(_cts.Token);
+    }
 
     protected override async Task OnParametersSetAsync()
     {
@@ -137,15 +157,14 @@
         }
     }
 
-    // Ungültige Werte oder Tage außerhalb der Konferenz fallen auf die Standardauswahl zurück.
+    // Starttag: ?tag=… hat Vorrang (sofern innerhalb der Konferenz), sonst heute (falls Konferenztag), sonst der erste Tag.
+    // Ungültige Werte fallen auf diese Standardauswahl zurück.
     private void ApplyQuery()
     {
         if (_agenda is null) return;
-        var conf = _agenda.Conference;
-        _day = DateOnly.TryParseExact(TagParam, DayFormat, CultureInfo.InvariantCulture, DateTimeStyles.None, out var d)
-               && d >= conf.StartDate && d <= conf.EndDate
-            ? d
-            : conf.StartDate;
+        ReadClock();
+        DateOnly? requested = DateOnly.TryParseExact(TagParam, DayFormat, CultureInfo.InvariantCulture, DateTimeStyles.None, out var d) ? d : null;
+        _day = AgendaNow.InitialDay(_agenda.Conference, _today, requested);
         _trackFilter = TrackParam is { } id && _agenda.Tracks.Any(t => t.Id == id) ? id : null;
         SelectDayWithHits();
     }
@@ -161,11 +180,12 @@
         UpdateQuery(_day, _trackFilter);
     }
 
-    // Schreibt die Auswahl in die URL (ohne neuen History-Eintrag). Standardwerte (erster Tag, alle Tracks,
-    // leere Suche) werden entfernt, andere Query-Parameter bleiben erhalten.
+    // Schreibt die Auswahl in die URL (ohne neuen History-Eintrag). Standardwerte (Standard-Starttag = heute bzw.
+    // erster Tag, alle Tracks, leere Suche) werden entfernt, andere Query-Parameter bleiben erhalten.
     private void UpdateQuery(DateOnly day, int? trackId)
     {
-        var tag = day == _agenda!.Conference.StartDate ? null : day.ToString(DayFormat, CultureInfo.InvariantCulture);
+        var defaultDay = AgendaNow.InitialDay(_agenda!.Conference, _today);
+        var tag = day == defaultDay ? null : day.ToString(DayFormat, CultureInfo.InvariantCulture);
         Nav.NavigateTo(Nav.GetUriWithQueryParameters(new Dictionary<string, object?>
         {
             ["tag"] = tag,
@@ -218,5 +238,38 @@
         return s.Title.Contains(term, StringComparison.OrdinalIgnoreCase)
             || (s.Abstract?.Contains(term, StringComparison.OrdinalIgnoreCase) ?? false)
             || s.Speakers.Any(sp => sp.Name.Contains(term, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private void ReadClock()
+    {
+        var local = Clock.GetLocalNow();
+        _today = DateOnly.FromDateTime(local.DateTime);
+        _now = TimeOnly.FromDateTime(local.DateTime);
+    }
+
+    private async Task RunClockAsync(CancellationToken ct)
+    {
+        try
+        {
+            // Erst auf die nächste volle Minute warten, damit Linie und Leiste mit der Uhr umspringen.
+            var local = Clock.GetLocalNow();
+            await Task.Delay(TimeSpan.FromSeconds(60 - local.Second) - TimeSpan.FromMilliseconds(local.Millisecond), Clock, ct);
+            ReadClock();
+            await InvokeAsync(StateHasChanged);
+
+            using var timer = new PeriodicTimer(TimeSpan.FromMinutes(1), Clock);
+            while (await timer.WaitForNextTickAsync(ct))
+            {
+                ReadClock();
+                await InvokeAsync(StateHasChanged);
+            }
+        }
+        catch (OperationCanceledException) { }
+    }
+
+    public void Dispose()
+    {
+        _cts.Cancel();
+        _cts.Dispose();
     }
 }
