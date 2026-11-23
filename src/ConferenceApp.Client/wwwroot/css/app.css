@@ -1,3 +1,67 @@
+/* ---------- Farbschema der Lade-Shell ----------
+   Vor dem WASM-Start gibt es noch keine --mud-palette-*-Variablen. Diese Shell-Farben spiegeln die
+   Paletten aus App.razor (MudTheme) und sind die einzigen festen Farben im CSS (neben der Admin-Kopfleiste).
+   Ohne data-theme gilt die Systemeinstellung; js/theme.js setzt data-theme aus der gespeicherten Wahl
+   und später aus dem tatsächlich angezeigten Modus. */
+:root {
+    color-scheme: light;
+    --app-shell-background: #ffffff;
+    --app-shell-text: #424242;
+    --app-shell-track: rgba(255, 255, 255, .25);
+    --app-shell-accent: #3949ab;
+    --app-shell-bar: #283593;
+    --app-shell-bar-text: #ffffff;
+    --app-shell-surface: #ffffff;
+    --app-shell-skeleton: #eeeeee;
+    --app-shell-skeleton-highlight: #f5f5f5;
+    --app-shell-elevation: 0 2px 1px -1px rgba(0, 0, 0, .2), 0 1px 1px 0 rgba(0, 0, 0, .14), 0 1px 3px 0 rgba(0, 0, 0, .12);
+    --app-shell-snackbar: #323232;
+    --app-shell-snackbar-text: #ffffff;
+    --app-shell-snackbar-action: #9fa8da;
+    --app-shell-hover: rgba(255, 255, 255, .08);
+}
+
+@media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+        color-scheme: dark;
+        --app-shell-background: #32333d;
+        --app-shell-text: rgba(255, 255, 255, .7);
+        --app-shell-track: rgba(255, 255, 255, .12);
+        --app-shell-accent: #9fa8da;
+        --app-shell-bar: #27272f;
+        --app-shell-bar-text: rgba(255, 255, 255, .7);
+        --app-shell-surface: #27272f;
+        --app-shell-skeleton: rgba(255, 255, 255, .08);
+        --app-shell-skeleton-highlight: rgba(255, 255, 255, .14);
+        --app-shell-snackbar: #e0e0e0;
+        --app-shell-snackbar-text: #212121;
+        --app-shell-snackbar-action: #3949ab;
+        --app-shell-hover: rgba(0, 0, 0, .08);
+    }
+}
+
+:root[data-theme="dark"] {
+    color-scheme: dark;
+    --app-shell-background: #32333d;
+    --app-shell-text: rgba(255, 255, 255, .7);
+    --app-shell-track: rgba(255, 255, 255, .12);
+    --app-shell-accent: #9fa8da;
+    --app-shell-bar: #27272f;
+    --app-shell-bar-text: rgba(255, 255, 255, .7);
+    --app-shell-surface: #27272f;
+    --app-shell-skeleton: rgba(255, 255, 255, .08);
+    --app-shell-skeleton-highlight: rgba(255, 255, 255, .14);
+    --app-shell-snackbar: #e0e0e0;
+    --app-shell-snackbar-text: #212121;
+    --app-shell-snackbar-action: #3949ab;
+    --app-shell-hover: rgba(0, 0, 0, .08);
+}
+
+html {
+    background-color: var(--mud-palette-background, var(--app-shell-background));
+    color: var(--mud-palette-text-primary, var(--app-shell-text));
+}
+
 /*
  * Abstands-Skala: 8 / 16 / 24 px.
  * In Razor die MudBlazor-Klassen mit Stufe 2 / 4 / 6 verwenden (pa-2 = 8 px, mb-4 = 16 px, pa-6 = 24 px),
@@ -46,7 +110,7 @@ html, body {
     background: var(--mud-palette-surface);
     color: var(--mud-palette-primary);
     border-radius: 4px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, .3);
+    box-shadow: var(--mud-elevation-4);
     font-weight: 500;
     transform: translateY(-200%);
 }
@@ -185,16 +249,16 @@ html, body {
     overflow: hidden;
     background: var(--mud-palette-surface);
     border: 1px solid var(--mud-palette-lines-default);
-    border-left: 5px solid #9E9E9E;
+    border-left: 5px solid var(--mud-palette-gray-default);
     border-radius: 6px;
     color: inherit;
     text-decoration: none;
-    box-shadow: 0 1px 2px rgba(0, 0, 0, .06);
+    box-shadow: var(--mud-elevation-1);
     transition: box-shadow .15s, transform .15s;
 }
 
 .agenda-session:hover {
-    box-shadow: 0 4px 10px rgba(0, 0, 0, .15);
+    box-shadow: var(--mud-elevation-4);
     transform: translateY(-1px);
 }
 
@@ -217,7 +281,7 @@ html, body {
 .prewrap { white-space: pre-wrap; }
 
 /* Farbiger Randstreifen; die Farbe kommt per --track-color aus den Daten. */
-.track-accent { border-left: 6px solid var(--track-color, #9E9E9E); }
+.track-accent { border-left: 6px solid var(--track-color, var(--mud-palette-gray-default)); }
 
 /* Aktionsspalte in Admin-Tabellen */
 .col-actions { text-align: right; white-space: nowrap; }
@@ -263,7 +327,8 @@ html, body {
 }
 
 /* ---------- Startbildschirm (statische App-Shell in index.html) ----------
-   Gleiche Maße wie MudAppBar/MudDrawer/MudContainer, damit beim Start nichts springt. */
+   Gleiche Maße wie MudAppBar/MudDrawer/MudContainer, damit beim Start nichts springt.
+   Farben kommen aus den --app-shell-*-Variablen (oben), damit die Shell dem Farbschema folgt. */
 .app-shell-bar {
     position: fixed;
     inset: 0 0 auto 0;
@@ -272,9 +337,9 @@ html, body {
     align-items: center;
     gap: 20px;
     padding: 0 24px 0 12px;
-    background: #283593;
-    color: #fff;
-    box-shadow: 0 2px 1px -1px rgba(0, 0, 0, .2), 0 1px 1px 0 rgba(0, 0, 0, .14), 0 1px 3px 0 rgba(0, 0, 0, .12);
+    background: var(--app-shell-bar);
+    color: var(--app-shell-bar-text);
+    box-shadow: var(--app-shell-elevation);
     z-index: 2;
 }
 
@@ -282,9 +347,9 @@ html, body {
     width: 24px;
     height: 24px;
     margin-left: 12px;
-    background: linear-gradient(#fff 0 0) 3px 6px / 18px 2px no-repeat,
-                linear-gradient(#fff 0 0) 3px 11px / 18px 2px no-repeat,
-                linear-gradient(#fff 0 0) 3px 16px / 18px 2px no-repeat;
+    background: linear-gradient(currentColor 0 0) 3px 6px / 18px 2px no-repeat,
+                linear-gradient(currentColor 0 0) 3px 11px / 18px 2px no-repeat,
+                linear-gradient(currentColor 0 0) 3px 16px / 18px 2px no-repeat;
 }
 
 .app-shell-title { font-size: 1.25rem; font-weight: 500; letter-spacing: .0075em; }
@@ -293,13 +358,13 @@ html, body {
     position: absolute;
     inset: auto 0 0 0;
     height: 3px;
-    background: rgba(255, 255, 255, .25);
+    background: var(--app-shell-track);
 }
 
 .app-shell-progress-value {
     height: 100%;
     width: var(--blazor-load-percentage, 0%);
-    background: #fff;
+    background: var(--app-shell-bar-text);
     transition: width .1s ease-out;
 }
 
@@ -307,8 +372,8 @@ html, body {
     position: fixed;
     inset: 64px auto 0 0;
     width: 240px;
-    background: #fff;
-    box-shadow: 0 2px 1px -1px rgba(0, 0, 0, .2), 0 1px 1px 0 rgba(0, 0, 0, .14), 0 1px 3px 0 rgba(0, 0, 0, .12);
+    background: var(--app-shell-surface);
+    box-shadow: var(--app-shell-elevation);
 }
 
 .app-shell-main {
@@ -317,7 +382,7 @@ html, body {
 
 .app-shell-text {
     margin: 0 0 16px;
-    color: rgba(0, 0, 0, .6);
+    color: var(--app-shell-text);
 }
 
 .app-shell-text::after { content: " " var(--blazor-load-percentage-text, ""); }
@@ -331,7 +396,7 @@ html, body {
 .app-shell-block {
     height: 180px;
     border-radius: 4px;
-    background: linear-gradient(90deg, #eee 25%, #f5f5f5 50%, #eee 75%) 0 0 / 200% 100%;
+    background: linear-gradient(90deg, var(--app-shell-skeleton) 25%, var(--app-shell-skeleton-highlight) 50%, var(--app-shell-skeleton) 75%) 0 0 / 200% 100%;
     animation: app-shell-wave 1.4s ease-in-out infinite;
 }
 
@@ -364,11 +429,11 @@ html, body {
     max-width: calc(100% - 32px);
     padding: 8px 8px 8px 16px;
     border-radius: 4px;
-    background: #323232;
-    color: #fff;
+    background: var(--app-shell-snackbar);
+    color: var(--app-shell-snackbar-text);
     font-size: .875rem;
     line-height: 1.43;
-    box-shadow: 0 3px 5px -1px rgba(0, 0, 0, .2), 0 6px 10px 0 rgba(0, 0, 0, .14), 0 1px 18px 0 rgba(0, 0, 0, .12);
+    box-shadow: var(--mud-elevation-6, var(--app-shell-elevation));
     z-index: 2000;
 }
 
@@ -378,14 +443,14 @@ html, body {
     display: inline-block;
     padding: 6px 8px;
     border-radius: 4px;
-    color: #9FA8DA;
+    color: var(--app-shell-snackbar-action);
     font-weight: 500;
     text-transform: uppercase;
     letter-spacing: .03em;
     text-decoration: none;
 }
 
-#blazor-error-ui .reload:hover { background: rgba(255, 255, 255, .08); }
+#blazor-error-ui .reload:hover { background: var(--app-shell-hover); }
 
 #blazor-error-ui .dismiss {
     margin-left: 4px;
@@ -398,4 +463,4 @@ html, body {
     cursor: pointer;
 }
 
-#blazor-error-ui .dismiss:hover { background: rgba(255, 255, 255, .08); }
+#blazor-error-ui .dismiss:hover { background: var(--app-shell-hover); }

@@ -28,7 +28,7 @@
     </PageHeader>
 
     @* Randfarbe kommt aus dem Track; Breite/Abstände stehen in .track-accent (app.css). *@
-    <MudPaper Class="pa-6 track-accent" Elevation="1" Style="@($"--track-color:{_session.TrackColor ?? "#9E9E9E"}")">
+    <MudPaper Class="pa-6 track-accent" Elevation="1" Style="@($"--track-color:{_session.TrackColor ?? "var(--mud-palette-gray-default)"}")">
         @if (!string.IsNullOrWhiteSpace(_session.Abstract))
         {
             <MudText Typo="Typo.body1" Class="prewrap mb-6">@_session.Abstract</MudText>

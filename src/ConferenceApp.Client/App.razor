@@ -1,5 +1,9 @@
 ﻿@* Provider und Theme liegen hier, damit PublicLayout und AdminLayout sie gemeinsam nutzen. *@
-<MudThemeProvider Theme="_theme" />
+@implements IDisposable
+@inject ThemeService ThemeState
+
+@* Systemmodus beobachtet theme.js (über ThemeService); MudBlazor soll IsDarkMode nicht eigenmächtig umschalten. *@
+<MudThemeProvider Theme="_theme" IsDarkMode="ThemeState.IsDarkMode" ObserveSystemDarkModeChange="false" />
 <MudPopoverProvider />
 <MudDialogProvider CloseOnEscapeKey="true" />
 <MudSnackbarProvider />
@@ -12,9 +16,12 @@
 </Router>
 
 @code {
+    // Einzige Stelle mit festen UI-Farben (neben den Shell-Farben in app.css); alles andere nutzt --mud-palette-*.
     private readonly MudTheme _theme = new()
     {
         PaletteLight = new PaletteLight { Primary = "#3949AB", Secondary = "#616161", AppbarBackground = "#283593" },
+        // Hellere Primärfarbe für Kontrast auf dunklem Grund, dunkle Schrift auf gefüllten Primär-Flächen.
+        PaletteDark = new PaletteDark { Primary = "#9FA8DA", PrimaryContrastText = "#1A237E", Secondary = "#BDBDBD" },
 
         // Typografie-Skala: h1 = Seitentitel (PageHeader), h2 = Abschnitt, h6 = Karten-/Unterabschnittstitel.
         Typography = new Typography
@@ -25,4 +32,20 @@
             H6 = new H6Typography { FontSize = "1.125rem", FontWeight = "500", LineHeight = "1.35", LetterSpacing = "0" },
         },
     };
+
+    protected override async Task OnInitializedAsync()
+    {
+        ThemeState.Changed += OnThemeChanged;
+        // Schon vor dem ersten Rendern lesen, damit die App nicht erst hell aufblitzt.
+        await ThemeState.InitializeAsync();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender) await ThemeState.WatchSystemAsync();
+    }
+
+    private void OnThemeChanged() => InvokeAsync(StateHasChanged);
+
+    public void Dispose() => ThemeState.Changed -= OnThemeChanged;
 }
