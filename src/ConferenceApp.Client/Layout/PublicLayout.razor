@@ -1,6 +1,6 @@
-﻿@inherits LayoutComponentBase
-@implements IDisposable
-@inject NavigationManager Navigation
+﻿@inherits MainFocusLayoutBase
+
+<a class="skip-link" href="#inhalt" @onclick="SkipToContentAsync" @onclick:preventDefault>Zum Inhalt springen</a>
 
 <MudLayout>
     <MudAppBar Elevation="1">
@@ -23,9 +23,11 @@
     </MudDrawer>
 
     <MudMainContent Class="public-main">
-        <MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="py-6 public-content">
-            @Body
-        </MudContainer>
+        <main id="inhalt" tabindex="-1" class="public-content" @ref="MainElement">
+            <MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="py-6">
+                @Body
+            </MudContainer>
+        </main>
 
         <footer class="public-footer">
             <MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="d-flex align-center">
@@ -40,17 +42,13 @@
 @code {
     private bool _drawerOpen;
 
-    protected override void OnInitialized() => Navigation.LocationChanged += OnLocationChanged;
-
     private void ToggleDrawer() => _drawerOpen = !_drawerOpen;
 
     // Temporärer Drawer schließt sich nach einem Klick auf einen Link.
-    private void OnLocationChanged(object? sender, LocationChangedEventArgs e)
+    protected override bool OnNavigated()
     {
-        if (!_drawerOpen) return;
+        if (!_drawerOpen) return false;
         _drawerOpen = false;
-        InvokeAsync(StateHasChanged);
+        return true;
     }
-
-    public void Dispose() => Navigation.LocationChanged -= OnLocationChanged;
 }

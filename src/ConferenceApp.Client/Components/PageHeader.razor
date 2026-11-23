@@ -2,7 +2,8 @@
 <header class="@HeaderClass">
     @if (Breadcrumbs is { Count: > 0 })
     {
-        <MudBreadcrumbs Items="Breadcrumbs" Class="page-header-breadcrumbs" />
+        @* Eigene Breadcrumbs-Komponente (#4): letzter Eintrag ist Text mit aria-current statt fokussierbarem Link. *@
+        <ConferenceApp.Client.Components.Breadcrumbs Items="Breadcrumbs" Class="page-header-breadcrumbs" />
     }
 
     <div class="page-header-row">

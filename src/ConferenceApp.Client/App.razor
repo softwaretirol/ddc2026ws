@@ -7,7 +7,7 @@
 <Router AppAssembly="@typeof(App).Assembly" NotFoundPage="typeof(Pages.NotFound)">
     <Found Context="routeData">
         <RouteView RouteData="@routeData" DefaultLayout="@typeof(PublicLayout)"/>
-        <FocusOnNavigate RouteData="@routeData" Selector="h1" />
+        @* Fokus nach Navigation setzen die Layouts (MainFocusLayoutBase) auf <main id="inhalt"> (nicht beim ersten Laden, damit der Skip-Link erster Tab-Stopp bleibt). *@
     </Found>
 </Router>
 

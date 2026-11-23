@@ -1,4 +1,6 @@
-@inherits LayoutComponentBase
+@inherits MainFocusLayoutBase
+
+<a class="skip-link" href="#inhalt" @onclick="SkipToContentAsync" @onclick:preventDefault>Zum Inhalt springen</a>
 
 <MudLayout>
     @* Eigene, dunklere Kopfleiste und Chip „Verwaltung“, damit der Admin-Bereich klar erkennbar ist. *@
@@ -23,9 +25,11 @@
     </MudDrawer>
 
     <MudMainContent>
-        <MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="py-6">
-            @Body
-        </MudContainer>
+        <main id="inhalt" tabindex="-1" @ref="MainElement">
+            <MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="py-6">
+                @Body
+            </MudContainer>
+        </main>
     </MudMainContent>
 </MudLayout>
 
