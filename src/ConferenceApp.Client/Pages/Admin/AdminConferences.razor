@@ -2,6 +2,7 @@
 @inject ApiClient Api
 @inject IDialogService Dialogs
 @inject ISnackbar Snackbar
+@inject NavigationManager Navigation
 
 <PageTitle>Admin – Konferenzen</PageTitle>
 
@@ -63,15 +64,16 @@
                 StartDate = existing.StartDate, EndDate = existing.EndDate, Location = existing.Location,
             };
 
+        ConferenceDto? saved = null;
         var parameters = new DialogParameters<ConferenceDialog>
         {
             { x => x.Model, model },
-            { x => x.OnSave, r => existing is null ? Api.CreateConferenceAsync(r) : Api.UpdateConferenceAsync(existing.Id, r) },
+            { x => x.OnSave, async r => saved = existing is null ? await Api.CreateConferenceAsync(r) : await Api.UpdateConferenceAsync(existing.Id, r) },
         };
 
-        if (await Dialogs.ShowFormAsync(existing is null ? "Neue Konferenz" : "Konferenz bearbeiten", parameters))
+        if (await Dialogs.ShowFormAsync(existing is null ? "Neue Konferenz" : "Konferenz bearbeiten", parameters) && saved is not null)
         {
-            Snackbar.Add("Gespeichert.", Severity.Success);
+            Snackbar.AddSaved($"Konferenz „{saved.Name}“ gespeichert.", Navigation, $"/konferenzen/{saved.Slug}");
             await LoadAsync();
         }
     }

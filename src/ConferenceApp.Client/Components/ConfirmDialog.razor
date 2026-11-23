@@ -3,7 +3,7 @@
         <MudText>@Text</MudText>
     </DialogContent>
     <DialogActions>
-        <MudButton OnClick="() => Dialog.Cancel()">Abbrechen</MudButton>
+        <MudButton OnClick="() => Dialog.Cancel()">@CancelText</MudButton>
         <MudButton Variant="Variant.Filled" Color="Color.Error" OnClick="() => Dialog.Close(DialogResult.Ok(true))">@ConfirmText</MudButton>
     </DialogActions>
 </MudDialog>
@@ -12,4 +12,5 @@
     [CascadingParameter] private IMudDialogInstance Dialog { get; set; } = default!;
     [Parameter] public string Text { get; set; } = "";
     [Parameter] public string ConfirmText { get; set; } = "Löschen";
+    [Parameter] public string CancelText { get; set; } = "Abbrechen";
 }

@@ -2,6 +2,7 @@
 @inject ApiClient Api
 @inject IDialogService Dialogs
 @inject ISnackbar Snackbar
+@inject NavigationManager Navigation
 
 <PageTitle>Admin – Speaker</PageTitle>
 
@@ -72,15 +73,16 @@
             ? new SpeakerRequest()
             : new SpeakerRequest { Name = existing.Name, Bio = existing.Bio, Company = existing.Company, PhotoUrl = existing.PhotoUrl, Links = [.. existing.Links] };
 
+        SpeakerDto? saved = null;
         var parameters = new DialogParameters<SpeakerDialog>
         {
             { x => x.Model, model },
-            { x => x.OnSave, r => existing is null ? Api.CreateSpeakerAsync(r) : Api.UpdateSpeakerAsync(existing.Id, r) },
+            { x => x.OnSave, async r => saved = existing is null ? await Api.CreateSpeakerAsync(r) : await Api.UpdateSpeakerAsync(existing.Id, r) },
         };
 
-        if (await Dialogs.ShowFormAsync(existing is null ? "Neuer Speaker" : "Speaker bearbeiten", parameters))
+        if (await Dialogs.ShowFormAsync(existing is null ? "Neuer Speaker" : "Speaker bearbeiten", parameters) && saved is not null)
         {
-            Snackbar.Add("Gespeichert.", Severity.Success);
+            Snackbar.AddSaved($"Speaker „{saved.Name}“ gespeichert.", Navigation, $"/speaker/{saved.Id}");
             await LoadAsync();
         }
     }

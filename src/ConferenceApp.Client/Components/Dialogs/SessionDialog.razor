@@ -8,6 +8,7 @@
             <MudSelectItem Value="day">@Format.Day(day)</MudSelectItem>
         }
     </MudSelect>
+    <ValidationMessage For="@(() => Model.Day)" class="mud-error-text mud-typography-caption" />
 
     <MudSelect T="int" Value="Model.RoomId" ValueChanged="RoomChanged" For="@(() => Model.RoomId)" Label="Raum" Required="true"
                Error="_roomConflicts.Count > 0" ErrorText="@RoomConflictText"
@@ -37,6 +38,7 @@
                          OnClick="() => SetDuration(m)">@m min</MudChip>
             }
         </div>
+        <ValidationMessage For="@(() => Model.StartTime)" class="mud-error-text mud-typography-caption" />
         <ValidationMessage For="@(() => Model.EndTime)" class="mud-error-text mud-typography-caption" />
     </div>
 
@@ -81,6 +83,7 @@
             <MudSelectItem T="int?" Value="t.Id"><span class="color-dot" style="background:@t.Color"></span>@t.Name</MudSelectItem>
         }
     </MudSelect>
+    <ValidationMessage For="@(() => Model.TrackId)" class="mud-error-text mud-typography-caption" />
 
     <MudSelect T="int" Label="Speaker" MultiSelection="true"
                SelectedValues="Model.SpeakerIds" SelectedValuesChanged="SpeakersChanged"
@@ -90,6 +93,7 @@
             <MudSelectItem Value="s.Id">@s.Name</MudSelectItem>
         }
     </MudSelect>
+    <ValidationMessage For="@(() => Model.SpeakerIds)" class="mud-error-text mud-typography-caption" />
 
     @if (_speakerConflicts.Count > 0)
     {

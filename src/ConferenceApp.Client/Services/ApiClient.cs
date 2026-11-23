@@ -5,10 +5,13 @@ using ConferenceApp.Shared;
 namespace ConferenceApp.Client.Services;
 
 /// <summary>Fehler der API, aufbereitet aus ProblemDetails.</summary>
-public class ApiException(string message, HttpStatusCode status) : Exception(message)
+public class ApiException(string message, HttpStatusCode status, IReadOnlyDictionary<string, string[]>? errors = null) : Exception(message)
 {
     public HttpStatusCode Status { get; } = status;
     public bool IsNotFound => Status == HttpStatusCode.NotFound;
+
+    /// <summary>Feldfehler eines ValidationProblem; Schlüssel = Feldname wie von der API geliefert (z. B. "Slug"). Leer, wenn keine.</summary>
+    public IReadOnlyDictionary<string, string[]> Errors { get; } = errors ?? new Dictionary<string, string[]>();
 }
 
 /// <summary>Typisierter Zugriff auf die Konferenz-API.</summary>
@@ -110,7 +113,7 @@ public class ApiClient(HttpClient http)
             { Title: { Length: > 0 } title } => title,
             _ => $"Fehler {(int)status}.",
         };
-        throw new ApiException(message, status);
+        throw new ApiException(message, status, problem?.Errors);
     }
 
     private sealed record ApiProblem(string? Title, string? Detail, Dictionary<string, string[]>? Errors);
