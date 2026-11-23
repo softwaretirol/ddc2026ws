@@ -6,7 +6,7 @@ metadata:
     app.kubernetes.io/name: conference-app
 spec:
   # Eine Replica: die App wendet beim Start EF-Migrationen an (mehrere Replikas würden sich dabei in die Quere kommen).
-  replicas: 1
+  replicas: 3
   strategy:
     type: Recreate
   selector:
