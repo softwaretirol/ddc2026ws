@@ -1,0 +1,19 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: conference
+
+labels:
+  - pairs:
+      app.kubernetes.io/part-of: conference
+    includeSelectors: false
+
+resources:
+  - database.yaml
+  - deployment.yaml
+  - service.yaml
+  - ingress.yaml
+
+# Image-Version: Tag aus dem Container-Workflow (sha-<commit>). Für ein Update hier anpassen und committen.
+images:
+  - name: ghcr.io/softwaretirol/ddc2026ws
+    newTag: sha-4c4859f

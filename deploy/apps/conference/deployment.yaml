@@ -1,0 +1,74 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: conference-app
+  labels:
+    app.kubernetes.io/name: conference-app
+spec:
+  # Eine Replica: die App wendet beim Start EF-Migrationen an (mehrere Replikas würden sich dabei in die Quere kommen).
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: conference-app
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: conference-app
+    spec:
+      imagePullSecrets:
+        - name: ghcr-pull
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: app
+          image: ghcr.io/softwaretirol/ddc2026ws
+          ports:
+            - name: http
+              containerPort: 8080
+          env:
+            - name: DB_USER
+              valueFrom:
+                secretKeyRef:
+                  name: conference-db-app
+                  key: username
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: conference-db-app
+                  key: password
+            # $(...) setzt Kubernetes aus den vorher definierten Variablen ein; "-rw" ist der Service des Primary.
+            - name: ConnectionStrings__conferencedb
+              value: "Host=conference-db-rw;Port=5432;Database=conferencedb;Username=$(DB_USER);Password=$(DB_PASSWORD);SSL Mode=Require"
+            # Hinter Traefik: X-Forwarded-Proto/-For übernehmen (https-URLs z. B. im iCal-Export).
+            - name: ASPNETCORE_FORWARDEDHEADERS_ENABLED
+              value: "true"
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            requests:
+              cpu: 100m
+              memory: 192Mi
+            limits:
+              memory: 512Mi
+          startupProbe:
+            httpGet:
+              path: /
+              port: http
+            periodSeconds: 5
+            failureThreshold: 60
+          readinessProbe:
+            httpGet:
+              path: /api/conferences
+              port: http
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /
+              port: http
+            periodSeconds: 20

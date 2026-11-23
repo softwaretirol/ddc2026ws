@@ -1,0 +1,25 @@
+# PostgreSQL über CloudNativePG: Primary + Replica, auf verschiedene Nodes verteilt.
+# CNPG legt das Secret "conference-db-app" (username, password, host, dbname, ...) an.
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: conference-db
+spec:
+  instances: 2
+  bootstrap:
+    initdb:
+      database: conferencedb
+      owner: conference
+  storage:
+    storageClass: hcloud-volumes
+    size: 10Gi
+  affinity:
+    enablePodAntiAffinity: true
+    topologyKey: kubernetes.io/hostname
+    podAntiAffinityType: required
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      memory: 512Mi
