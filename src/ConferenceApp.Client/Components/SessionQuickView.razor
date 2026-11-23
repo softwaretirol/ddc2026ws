@@ -1,0 +1,64 @@
+@* Quick-View einer Session aus dem Agenda-Raster: Abstract und Speaker ohne Seitenwechsel. *@
+
+<MudDialog>
+    <TitleContent>
+        @if (Session.TrackName is not null)
+        {
+            <MudText Typo="Typo.overline"><span class="color-dot" style="background:@Session.TrackColor" aria-hidden="true"></span>@Session.TrackName</MudText>
+        }
+        <MudText Typo="Typo.h6">@Session.Title</MudText>
+    </TitleContent>
+    <DialogContent>
+        <div class="d-flex flex-wrap gap-4 mb-4">
+            <MudText Typo="Typo.body2"><MudIcon Icon="@Icons.Material.Filled.Event" Size="Size.Small" Class="mr-1" />@Format.Day(Session.Day)</MudText>
+            <MudText Typo="Typo.body2"><MudIcon Icon="@Icons.Material.Filled.Schedule" Size="Size.Small" Class="mr-1" />@Format.Range(Session.StartTime, Session.EndTime)</MudText>
+            <MudText Typo="Typo.body2"><MudIcon Icon="@Icons.Material.Filled.MeetingRoom" Size="Size.Small" Class="mr-1" />@Session.RoomName</MudText>
+        </div>
+
+        @if (!string.IsNullOrWhiteSpace(Session.Abstract))
+        {
+            <MudText Typo="Typo.body1" Class="prewrap mb-4">@Session.Abstract</MudText>
+        }
+        else
+        {
+            <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-4">Für diese Session gibt es noch keine Beschreibung.</MudText>
+        }
+
+        @if (Session.Speakers.Count > 0)
+        {
+            <MudText Typo="Typo.subtitle2" GutterBottom="true">Speaker</MudText>
+            <MudStack Spacing="2">
+                @foreach (var sp in Session.Speakers)
+                {
+                    <div class="d-flex align-center gap-3">
+                        <SpeakerAvatar Name="@sp.Name" PhotoUrl="@sp.PhotoUrl" Size="Size.Small" />
+                        <div>
+                            <MudLink Href="@SpeakerHref(sp)" Typo="Typo.body1">@sp.Name</MudLink>
+                            @if (!string.IsNullOrWhiteSpace(sp.Company))
+                            {
+                                <MudText Typo="Typo.body2" Color="Color.Secondary">@sp.Company</MudText>
+                            }
+                        </div>
+                    </div>
+                }
+            </MudStack>
+        }
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Close">Schließen</MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" Href="@DetailHref"
+                   EndIcon="@Icons.Material.Filled.ArrowForward">Zur Detailseite</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] private IMudDialogInstance Dialog { get; set; } = default!;
+    [Parameter, EditorRequired] public SessionDto Session { get; set; } = default!;
+    [Parameter, EditorRequired] public string Slug { get; set; } = "";
+
+    private string DetailHref => $"/konferenzen/{Slug}/sessions/{Session.Id}";
+
+    private static string SpeakerHref(SpeakerSummaryDto sp) => $"/speaker/{sp.Id}";
+
+    private void Close() => Dialog.Close();
+}

@@ -3,12 +3,38 @@
 
 <PageTitle>Konferenzen</PageTitle>
 
-<MudText Typo="Typo.h4" GutterBottom="true">Konferenzen</MudText>
+<PageHeader Title="Konferenzen" />
 
-<PageState Loading="_conferences is null" Error="@_error">
+<PageState Loading="_conferences is null" Error="@_error" OnRetry="LoadAsync">
+    <Skeleton>
+        <MudGrid>
+            @for (var i = 0; i < 3; i++)
+            {
+                <MudItem xs="12" sm="6" lg="4">
+                    <MudCard Elevation="2" Class="h-100">
+                        <MudCardHeader>
+                            <CardHeaderContent>
+                                <MudSkeleton Width="70%" Height="32px" />
+                                <MudSkeleton Width="50%" />
+                            </CardHeaderContent>
+                        </MudCardHeader>
+                        <MudCardContent>
+                            <MudSkeleton />
+                            <MudSkeleton Width="85%" />
+                        </MudCardContent>
+                        <MudCardActions>
+                            <MudSkeleton SkeletonType="SkeletonType.Rectangle" Width="110px" Height="36px" Class="rounded" />
+                        </MudCardActions>
+                    </MudCard>
+                </MudItem>
+            }
+        </MudGrid>
+    </Skeleton>
+    <ChildContent>
     @if (_conferences!.Count == 0)
     {
-        <MudAlert Severity="Severity.Info">Noch keine Konferenzen vorhanden. Lege im <MudLink Href="/admin">Admin-Bereich</MudLink> eine an.</MudAlert>
+        <EmptyState Icon="@Icons.Material.Outlined.EventBusy" Title="Noch keine Konferenzen"
+                    Text="Sobald eine Konferenz veröffentlicht ist, findest du hier ihre Agenda." />
     }
     else
     {
@@ -36,14 +62,18 @@
             }
         </MudGrid>
     }
+    </ChildContent>
 </PageState>
 
 @code {
     private List<ConferenceDto>? _conferences;
     private string? _error;
 
-    protected override async Task OnInitializedAsync()
+    protected override Task OnInitializedAsync() => LoadAsync();
+
+    private async Task LoadAsync()
     {
+        _error = null;
         try { _conferences = await Api.GetConferencesAsync(); }
         catch (ApiException ex) { _error = ex.Message; }
     }
